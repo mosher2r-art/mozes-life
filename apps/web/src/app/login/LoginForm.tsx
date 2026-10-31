@@ -48,7 +48,7 @@ export function LoginForm() {
         </p>
       )}
       <button className="btn btn-primary" type="submit" disabled={pending} aria-busy={pending}>
-        {pending ? "מתחבר…" : "התחברות"}
+        {pending ? "מתחברים…" : "התחברות"}
       </button>
     </form>
   );

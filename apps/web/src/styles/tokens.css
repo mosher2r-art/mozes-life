@@ -9,6 +9,8 @@
   --brand-green: #77ae26;         /* logo "LIFE" — NOT for text on light bg (2.67:1) */
   --brand-green-text: #4a7a12;    /* green text on light bg: 4.73:1 on --bg */
   --brand-black: #000000;         /* logo backdrop */
+  --ink: #0e1b21;                 /* Studio chrome, primary dark surface */
+  --side-text-dim: #a3b4b8;       /* 8.9:1 on --ink */
 
   /* Surfaces */
   --bg: #f3f6f5;

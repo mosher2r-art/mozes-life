@@ -24,7 +24,7 @@ test.describe("anonymous", () => {
     await page.goto("/login");
     await expect(page.locator("html")).toHaveAttribute("lang", "he");
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-    await expect(page.getByRole("heading", { name: "התחברות" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "כניסה לחשבון" })).toBeVisible();
     await expect(page.getByAltText("MOZES LIFE — לומדים להציל חיים")).toBeVisible();
     await expectNoHorizontalScroll(page);
     await expectNoA11yViolations(page);
@@ -74,7 +74,7 @@ test.describe("super_admin", () => {
   test("lands in Studio with a live DB status and can call Studio API", async ({ page }, info) => {
     await login(page, "admin");
     await expect(page).toHaveURL(/\/studio$/);
-    await expect(page.getByRole("heading", { name: `שלום ${USERS.admin.name}` })).toBeVisible();
+    await expect(page.getByRole("heading", { name: `שלום, ${USERS.admin.name}` })).toBeVisible();
     await expect(page.getByText("מחובר", { exact: true })).toBeVisible();
     await expectNoHorizontalScroll(page);
     await expectNoA11yViolations(page);
@@ -117,7 +117,7 @@ test.describe("learner", () => {
     await expect(page).toHaveURL(/\/learn$/);
     await page.goto("/studio");
     await expect(page.getByRole("heading", { name: "אין לך הרשאה לאזור הזה" })).toBeVisible();
-    await expect(page.getByText("לוח בקרה")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "לוח בקרה" })).toHaveCount(0);
     expect((await page.request.get("/api/studio/me")).status()).toBe(403);
   });
 });

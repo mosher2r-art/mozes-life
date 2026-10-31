@@ -18,8 +18,11 @@ export default async function LearnLayout({ children }: { children: React.ReactN
         דילוג לתוכן הראשי
       </a>
       <header className="academy-header">
-        <Logo width={130} priority />
-        <SignOutButton />
+        <Logo width={132} priority />
+        <div className="academy-user">
+          <span>{user.name}</span>
+          <SignOutButton className="icon-btn icon-btn-dark" />
+        </div>
       </header>
       <main id="main" className="academy-main" tabIndex={-1}>
         {children}

@@ -5,7 +5,8 @@ import type { CourseInput } from "@mozes/content-schema";
  * Deliberately NON-MEDICAL. Must never be presented to learners as training content.
  */
 export const DEMO_MEDIA: Record<string, { src: string; mime?: string }> = {
-  scene: { src: "/demo/scene.svg", mime: "image/svg+xml" },
+  scene: { src: "/demo/scene.jpg", mime: "image/jpeg" },
+  poster: { src: "/demo/demo-poster.jpg", mime: "image/jpeg" },
   room: { src: "/demo/room.svg", mime: "image/svg+xml" },
   clip: { src: "/demo/demo-clip.mp4", mime: "video/mp4" },
   "clip-captions": { src: "/demo/demo-clip.he.vtt", mime: "text/vtt" },
@@ -59,7 +60,7 @@ export const demoCourse: CourseInput = {
           title: "מסך תמונה וטקסט",
           template: "media_text",
           slots: {
-            media: [{ id: "mt-img", type: "image", media: { assetId: "scene" }, alt: "איור מופשט של לובי עם שתי דלתות ועיגול ירוק במרכז", caption: "איור הדגמה" }],
+            media: [{ id: "mt-img", type: "image", media: { assetId: "scene" }, alt: "תמונת אווירה מופשטת: אורות רכים על רקע כחול כהה", caption: "תמונת הדגמה" }],
             body: [
               { id: "mt-h", type: "heading", text: "מדיה לצד טקסט", level: 2 },
               { id: "mt-rt", type: "richText", body: [p("במחשב התמונה והטקסט מוצגים זה לצד זה. בטלפון הם מוצגים אחד מתחת לשני, בלי עיצוב ידני נפרד.")] },
@@ -78,7 +79,8 @@ export const demoCourse: CourseInput = {
                 media: { assetId: "clip" },
                 captions: { assetId: "clip-captions" },
                 requiredWatchPercent: 80,
-                transcript: "סרטון הדגמה טכני ללא קול: ריבוע ירוק נע על רקע כחול ומונה שניות.",
+                poster: { assetId: "poster" },
+                transcript: "סרטון הדגמה טכני ללא קול: מעברי צבע איטיים בגווני כחול וירוק.",
               },
             ],
             body: [{ id: "vid-rt", type: "richText", body: [p("כדי להמשיך יש לצפות לפחות ב-80% מהסרטון. הכתוביות והתמליל זמינים לכולם.")] }],
@@ -160,7 +162,7 @@ export const demoCourse: CourseInput = {
           title: "תרחיש עם בחירת פעולה",
           template: "scenario",
           slots: {
-            media: [{ id: "sc-vid", type: "video", media: { assetId: "clip" }, captions: { assetId: "clip-captions" }, pauseAtMs: 4000 }],
+            media: [{ id: "sc-vid", type: "video", media: { assetId: "clip" }, poster: { assetId: "poster" }, captions: { assetId: "clip-captions" }, pauseAtMs: 4000 }],
             intro: [{ id: "sc-rt", type: "richText", body: [p("הסרטון ייעצר אחרי 4 שניות ותוצג שאלה. התשובה קובעת לאן ממשיכים: תשובה שגויה מובילה למסך הסבר.")] }],
             decision: [
               {
@@ -195,16 +197,16 @@ export const demoCourse: CourseInput = {
                 type: "hotspotImage",
                 prompt: "סמנו את שתי הדלתות בחדר (מסומנות בירוק).",
                 media: { assetId: "room" },
-                alt: "תרשים חדר מלמעלה עם שולחן, ארון, ספה ושתי דלתות ירוקות",
+                alt: "תרשים קומה של חדר: שולחן עם ארבעה כיסאות, ארון, ספה ושתי דלתות המסומנות בירוק",
                 mode: "all",
                 maxAttempts: 2,
                 points: 1,
                 feedback: { correct: "מצאתם את שתי הדלתות.", incorrect: "חסרה דלת, או שסומן אזור אחר." },
                 hotspots: [
-                  { id: "door-top", label: "דלת עליונה", correct: true, shape: { kind: "rect", x: 11, y: 5, w: 17, h: 10 } },
+                  { id: "door-top", label: "דלת עליונה", correct: true, shape: { kind: "rect", x: 10, y: 5, w: 18, h: 10 } },
                   { id: "door-side", label: "דלת צדדית", correct: true, shape: { kind: "rect", x: 89, y: 58, w: 10, h: 28 } },
-                  { id: "table", label: "שולחן", correct: false, shape: { kind: "rect", x: 38, y: 38, w: 24, h: 24 } },
-                  { id: "cabinet", label: "ארון", correct: false, shape: { kind: "rect", x: 70, y: 17, w: 18, h: 15 } },
+                  { id: "table", label: "שולחן", correct: false, shape: { kind: "rect", x: 38, y: 38, w: 24, h: 26 } },
+                  { id: "cabinet", label: "ארון", correct: false, shape: { kind: "rect", x: 70, y: 16, w: 19, h: 16 } },
                 ],
               },
             ],

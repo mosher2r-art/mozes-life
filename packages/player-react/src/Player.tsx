@@ -15,6 +15,7 @@ import {
 } from "@mozes/player-core";
 import { AudioView, CalloutView, HeadingView, ImageView, RichTextView, VideoView } from "./content";
 import { type MediaResolver, PlayerContext, usePlayer } from "./context";
+import { IconBack, IconForward } from "./icons";
 import { ChoiceQuestionView, HotspotView, SequenceView, TrueFalseView } from "./questions";
 
 /* ───────────── Component dispatch ───────────── */
@@ -89,20 +90,43 @@ function ScenarioScreen({ screen }: { screen: Screen }) {
   );
 }
 
+function ScoreRing({ percent, earned, possible }: { percent: number; earned: number; possible: number }) {
+  const r = 70;
+  const c = 2 * Math.PI * r;
+  return (
+    <div className="mp-score" role="status">
+      <svg className="mp-ring" viewBox="0 0 168 168" aria-hidden="true">
+        <circle className="mp-ring-track" cx="84" cy="84" r={r} fill="none" strokeWidth="10" />
+        <circle
+          className="mp-ring-value"
+          cx="84"
+          cy="84"
+          r={r}
+          fill="none"
+          strokeWidth="10"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - percent / 100)}
+          transform="rotate(-90 84 84)"
+        />
+        <text className="mp-ring-text" x="84" y="84" textAnchor="middle" dominantBaseline="central" direction="ltr">
+          {percent}%
+        </text>
+      </svg>
+      <span className="mp-score-label">
+        ציון: {earned} מתוך {possible} נקודות
+      </span>
+    </div>
+  );
+}
+
 function SummaryScreen({ screen }: { screen: Screen }) {
   const { course, state } = usePlayer();
   const s = summarize(course, state);
   return (
     <div className="mp-tpl mp-tpl-summary">
       <Slot screen={screen} id="body" />
-      {s.possible > 0 && (
-        <div className="mp-score" role="status">
-          <span className="mp-score-value">{s.scorePercent}%</span>
-          <span className="mp-score-label">
-            ציון: {s.earned} מתוך {s.possible} נקודות
-          </span>
-        </div>
-      )}
+      {s.possible > 0 && s.scorePercent !== null && <ScoreRing percent={s.scorePercent} earned={s.earned} possible={s.possible} />}
     </div>
   );
 }
@@ -154,6 +178,18 @@ export interface CoursePlayerProps {
   onError?: (error: unknown) => void;
 }
 
+const EYEBROW: Record<Screen["template"], string> = {
+  cinematic_intro: "פתיחה",
+  text: "הסבר",
+  media_text: "הסבר",
+  video: "וידאו",
+  question: "שאלה",
+  scenario: "תרחיש",
+  hotspot: "משימה",
+  sequence: "משימה",
+  summary: "סיכום",
+};
+
 const STATUS_TEXT = { passed: "עברת את הקורס", failed: "לא הגעת לציון המעבר", completed: "סיימת את הקורס", in_progress: "" } as const;
 
 export function CoursePlayer({ course, resolveMedia, initialState, onStateChange, onError }: CoursePlayerProps) {
@@ -192,8 +228,8 @@ export function CoursePlayer({ course, resolveMedia, initialState, onStateChange
       firstRender.current = false;
       return;
     }
+    // Focusing also scrolls the title into view inside whatever container hosts the player.
     titleRef.current?.focus();
-    window.scrollTo({ top: 0 });
   }, [state.currentScreenId, state.finished]);
 
   const summary = summarize(course, state);
@@ -217,26 +253,45 @@ export function CoursePlayer({ course, resolveMedia, initialState, onStateChange
     <PlayerContext.Provider value={ctx}>
       <div className="mp-player" dir="rtl" lang="he">
         <header className="mp-topbar">
-          <div className="mp-topbar-text">
+          <div className="mp-topbar-row">
             <span className="mp-course-title">{course.title}</span>
-            <span className="mp-unit-title">{ref.unit.title}</span>
+            <span className="mp-progress-label">{ref.unit.title}</span>
           </div>
           <div
-            className="mp-progress"
+            className="mp-chapters"
             role="progressbar"
             aria-label="התקדמות בקורס"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={summary.progressPercent}
+            aria-valuetext={`${summary.progressPercent}%`}
           >
-            <div className="mp-progress-bar" style={{ width: `${summary.progressPercent}%` }} />
+            {course.units.map((u) => {
+              const total = u.screens.length || 1;
+              const seen = u.screens.filter((sc) => state.visited.includes(sc.id)).length;
+              const pct = state.finished ? 100 : Math.round((seen / total) * 100);
+              return (
+                <div key={u.id} className="mp-chapter" title={u.title}>
+                  <div className="mp-chapter-fill" style={{ width: `${pct}%` }} />
+                </div>
+              );
+            })}
           </div>
         </header>
 
-        <section className="mp-screen" aria-labelledby="mp-screen-title">
-          <h1 id="mp-screen-title" ref={titleRef} tabIndex={-1} className={screen.template === "cinematic_intro" ? "mp-sr" : "mp-screen-title"}>
-            {screen.title}
-          </h1>
+        <section className={`mp-screen${screen.template === "cinematic_intro" ? " is-cinematic" : ""}`} key={screen.id} aria-labelledby="mp-screen-title">
+          {screen.template === "cinematic_intro" ? (
+            <h1 id="mp-screen-title" ref={titleRef} tabIndex={-1} className="mp-sr">
+              {screen.title}
+            </h1>
+          ) : (
+            <div className="mp-screen-head">
+              <span className="mp-eyebrow" aria-hidden="true">{EYEBROW[screen.template]}</span>
+              <h1 id="mp-screen-title" ref={titleRef} tabIndex={-1} className="mp-screen-title">
+                {screen.title}
+              </h1>
+            </div>
+          )}
           <ScreenBody key={screen.id} screen={screen} />
           {state.finished && (
             <div className={`mp-result mp-result-${summary.status}`} role="status">
@@ -248,14 +303,18 @@ export function CoursePlayer({ course, resolveMedia, initialState, onStateChange
 
         <footer className="mp-nav">
           <button type="button" className="mp-btn mp-btn-ghost" onClick={() => dispatch({ type: "back" })} disabled={!state.history.length}>
+            <IconBack />
             הקודם
           </button>
-          <div className="mp-nav-status" aria-live="polite">
+          <div className={`mp-nav-status${error ? " has-error" : ""}`} aria-live="polite">
             {error ?? pendingReason}
           </div>
-          {!state.finished && (
+          {state.finished ? (
+            <span />
+          ) : (
             <button type="button" className="mp-btn mp-btn-primary" onClick={() => dispatch({ type: "continue" })} disabled={!ready}>
               {willFinish ? "סיום" : "המשך"}
+              {!willFinish && <IconForward />}
             </button>
           )}
         </footer>

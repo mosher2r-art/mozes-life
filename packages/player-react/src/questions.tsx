@@ -5,6 +5,9 @@ import type { ComponentOf, QuestionComponent } from "@mozes/content-schema";
 import type { Response } from "@mozes/player-core";
 import { MissingMedia } from "./content";
 import { usePlayer } from "./context";
+import { IconCheck, IconCheckCircle, IconDown, IconUp, IconX, IconXCircle } from "./icons";
+
+const KEYS = ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח"];
 
 /* ───────────── Helpers ───────────── */
 
@@ -47,9 +50,11 @@ function Feedback({ q, extra }: { q: QuestionComponent; extra?: string[] }) {
     : qs.resolved
       ? "התשובה אינה נכונה"
       : `התשובה אינה נכונה. נותרו ${q.maxAttempts - qs.attempts} ניסיונות`;
+  const Icon = qs.correct ? IconCheckCircle : IconXCircle;
   return (
     <div className="mp-feedback-region" aria-live="polite">
       <div className={`mp-feedback mp-feedback-${tone}`} key={qs.attempts}>
+        <Icon className="mp-feedback-icon" />
         <p className="mp-feedback-status">{status}</p>
         {general && <p>{general}</p>}
         {extra?.filter(Boolean).map((t, i) => <p key={i}>{t}</p>)}
@@ -94,7 +99,7 @@ export function ChoiceQuestionView({ q }: { q: ComponentOf<"choiceQuestion"> }) 
         <legend className="mp-prompt">{q.prompt}</legend>
         {q.mode === "multiple" && <p className="mp-hint">ניתן לבחור יותר מתשובה אחת</p>}
         <div className="mp-options">
-          {options.map((o) => {
+          {options.map((o, idx) => {
             const isSel = resolved ? last.includes(o.id) : selected.includes(o.id);
             const mark = revealCorrect && o.correct ? "correct" : resolved && isSel ? (o.correct ? "correct" : "incorrect") : "";
             return (
@@ -106,8 +111,22 @@ export function ChoiceQuestionView({ q }: { q: ComponentOf<"choiceQuestion"> }) 
                   checked={isSel}
                   onChange={() => toggle(o.id)}
                 />
-                <span>{o.text}</span>
-                {mark === "correct" && <span className="mp-mark">✓<span className="mp-sr"> תשובה נכונה</span></span>}
+                <span className={`mp-key${q.mode === "multiple" ? " is-check" : ""}`} aria-hidden="true">
+                  {q.mode === "multiple" && isSel ? <IconCheck className="mp-option-mark" /> : KEYS[idx]}
+                </span>
+                <span className="mp-option-text">{o.text}</span>
+                {mark === "correct" && (
+                  <>
+                    <IconCheck className="mp-option-mark" />
+                    <span className="mp-sr">תשובה נכונה</span>
+                  </>
+                )}
+                {mark === "incorrect" && (
+                  <>
+                    <IconX className="mp-option-mark" />
+                    <span className="mp-sr">תשובה שגויה</span>
+                  </>
+                )}
               </label>
             );
           })}
@@ -141,13 +160,16 @@ export function TrueFalseView({ q }: { q: ComponentOf<"trueFalse"> }) {
       <fieldset disabled={resolved}>
         <legend className="mp-prompt">{q.prompt}</legend>
         <div className="mp-options mp-options-row">
-          {opts.map((o) => {
+          {opts.map((o, idx) => {
             const isSel = resolved ? last === o.v : value === o.v;
             const mark = revealCorrect && q.answer === o.v ? "correct" : resolved && isSel ? (q.answer === o.v ? "correct" : "incorrect") : "";
             return (
               <label key={String(o.v)} className={`mp-option${isSel ? " is-selected" : ""}${mark ? ` is-${mark}` : ""}`}>
                 <input type="radio" name={name} checked={isSel} onChange={() => setValue(o.v)} />
-                <span>{o.label}</span>
+                <span className="mp-key" aria-hidden="true">{KEYS[idx]}</span>
+                <span className="mp-option-text">{o.label}</span>
+                {mark === "correct" && <IconCheck className="mp-option-mark" />}
+                {mark === "incorrect" && <IconX className="mp-option-mark" />}
               </label>
             );
           })}
@@ -211,6 +233,11 @@ export function HotspotView({ q }: { q: ComponentOf<"hotspotImage"> }) {
       ) : (
         <MissingMedia />
       )}
+      {!resolved && q.mode === "all" && (
+        <p className="mp-hotspot-count" aria-live="polite">
+          {selected.length === 0 ? "לא סומנו אזורים" : selected.length === 1 ? "סומן אזור אחד" : `סומנו ${selected.length} אזורים`}
+        </p>
+      )}
       <SubmitBar disabled={!selected.length} resolved={resolved} />
       <Feedback q={q} extra={fb} />
     </form>
@@ -259,8 +286,8 @@ export function SequenceView({ q }: { q: ComponentOf<"sequenceTask"> }) {
             <span className="mp-seq-text">{text(id)}</span>
             {!resolved && (
               <span className="mp-seq-actions">
-                <button type="button" className="mp-icon-btn" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`העברה למעלה: ${text(id)}`}>▲</button>
-                <button type="button" className="mp-icon-btn" onClick={() => move(i, 1)} disabled={i === shown.length - 1} aria-label={`העברה למטה: ${text(id)}`}>▼</button>
+                <button type="button" className="mp-icon-btn" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`העברה למעלה: ${text(id)}`}><IconUp /></button>
+                <button type="button" className="mp-icon-btn" onClick={() => move(i, 1)} disabled={i === shown.length - 1} aria-label={`העברה למטה: ${text(id)}`}><IconDown /></button>
               </span>
             )}
           </li>

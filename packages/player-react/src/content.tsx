@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Block, ComponentOf, Inline } from "@mozes/content-schema";
 import { usePlayer } from "./context";
+import { IconAlert, IconInfo, IconStar } from "./icons";
 
 function InlineText({ node }: { node: Inline }) {
   let el: React.ReactNode = node.text;
@@ -56,10 +57,16 @@ export function RichTextView({ c }: { c: ComponentOf<"richText"> }) {
 
 const CALLOUT_LABEL = { info: "מידע", warning: "שימו לב", success: "חשוב לזכור" } as const;
 
+const CALLOUT_ICON = { info: IconInfo, warning: IconAlert, success: IconStar } as const;
+
 export function CalloutView({ c }: { c: ComponentOf<"callout"> }) {
+  const Icon = CALLOUT_ICON[c.tone];
   return (
     <aside className={`mp-callout mp-callout-${c.tone}`} aria-label={CALLOUT_LABEL[c.tone]}>
-      <Blocks blocks={c.body} />
+      <Icon className="mp-callout-icon" />
+      <div className="mp-callout-body">
+        <Blocks blocks={c.body} />
+      </div>
     </aside>
   );
 }

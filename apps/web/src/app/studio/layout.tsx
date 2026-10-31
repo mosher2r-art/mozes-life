@@ -11,8 +11,8 @@ export const metadata: Metadata = { title: { default: "Studio", template: "%s ·
 
 // Navigation lists ONLY areas that are implemented. New areas are added as they ship.
 const NAV = [
-  { href: "/studio", label: "לוח בקרה" },
-  { href: "/studio/preview/demo", label: "הדגמת נגן" },
+  { href: "/studio", label: "לוח בקרה", icon: "dashboard" },
+  { href: "/studio/preview/demo", label: "הדגמת נגן", icon: "play" },
 ] as const;
 
 export default async function StudioLayout({ children }: { children: React.ReactNode }) {
@@ -21,31 +21,31 @@ export default async function StudioLayout({ children }: { children: React.React
   if (!can(user.actor, "studio.access")) return <Forbidden />;
 
   const roles = user.actor.platformRoles.map((r) => ROLE_LABELS_HE[r]).join(" · ");
+  const initials = user.name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("");
 
   return (
     <div className="studio">
       <a className="skip-link" href="#main">
         דילוג לתוכן הראשי
       </a>
-      <header className="studio-header">
+      <aside className="studio-side">
         <div className="studio-brand">
-          <Logo width={150} priority />
-          <span className="studio-product">Studio</span>
+          <Logo width={148} priority />
+          <span className="studio-product">STUDIO</span>
         </div>
+        <StudioNav items={NAV} />
         <div className="studio-user">
-          <span>
+          <span className="avatar" aria-hidden="true">{initials}</span>
+          <span className="studio-user-text">
             <strong>{user.name}</strong>
             <span className="studio-roles">{roles}</span>
           </span>
           <SignOutButton />
         </div>
-      </header>
-      <div className="studio-body">
-        <StudioNav items={NAV} />
-        <main id="main" className="studio-main" tabIndex={-1}>
-          {children}
-        </main>
-      </div>
+      </aside>
+      <main id="main" className="studio-main" tabIndex={-1}>
+        {children}
+      </main>
     </div>
   );
 }

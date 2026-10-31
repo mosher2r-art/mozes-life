@@ -35,7 +35,7 @@ test("editor preview shows validation and plays the full demo course", async ({ 
   await page.getByRole("link", { name: "הדגמת נגן" }).click();
   await expect(page.getByRole("heading", { name: "הדגמת נגן", level: 1 })).toBeVisible();
   await expect(page.getByText("בדיקת תקינות טכנית אינה מהווה אישור רפואי.")).toBeVisible();
-  await expect(page.getByText(/הקורס תקין טכנית\. שגיאות: 0 · אזהרות: 0/)).toBeVisible();
+  await expect(page.getByText("הקורס תקין טכנית")).toBeVisible();
 
   const shot = (name: string) => page.screenshot({ path: `test-results/screens/player-${name}-${info.project.name}.png`, fullPage: true });
 
@@ -53,7 +53,7 @@ test("editor preview shows validation and plays the full demo course", async ({ 
 
   // 3. Media + text
   await expect(title(page)).toHaveText("מסך תמונה וטקסט");
-  await expect(page.getByRole("img", { name: /איור מופשט של לובי/ })).toBeVisible();
+  await expect(page.getByRole("img", { name: /תמונת אווירה מופשטת/ })).toBeVisible();
   await shot("media-text");
   await cont(page);
 
@@ -90,7 +90,7 @@ test("editor preview shows validation and plays the full demo course", async ({ 
 
   // 7. True / false
   await expect(title(page)).toHaveText("נכון או לא נכון");
-  await page.getByLabel("נכון", { exact: true }).check();
+  await page.getByRole("radio", { name: "נכון", exact: true }).check();
   await page.getByRole("button", { name: "בדיקה" }).click();
   await cont(page);
 
