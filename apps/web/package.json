@@ -18,6 +18,10 @@
   "dependencies": {
     "@fontsource/heebo": "5.3.0",
     "@mozes/authz": "workspace:*",
+    "@mozes/content-schema": "workspace:*",
+    "@mozes/player-core": "workspace:*",
+    "@mozes/player-react": "workspace:*",
+    "@mozes/validator": "workspace:*",
     "better-auth": "1.7.10",
     "drizzle-orm": "0.45.4",
     "next": "16.4.2",

@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 // Real, honest roadmap status — informational text, not interactive controls.
 const MODULES: { name: string; status: "active" | "next" | "planned" }[] = [
   { name: "התחברות והרשאות", status: "active" },
+  { name: "מנוע תוכן, בדיקת תקינות ונגן (הדגמה)", status: "active" },
   { name: "ניהול קורסים", status: "next" },
   { name: "עורך הלומדות", status: "next" },
   { name: "מרכז ייבוא לומדות", status: "planned" },

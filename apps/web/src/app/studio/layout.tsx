@@ -1,16 +1,19 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { can, ROLE_LABELS_HE } from "@mozes/authz";
 import { Forbidden } from "@/components/Forbidden";
 import { Logo } from "@/components/Logo";
 import { SignOutButton } from "@/components/SignOutButton";
+import { StudioNav } from "@/components/StudioNav";
 import { getCurrentUser } from "@/server/actor";
 
 export const metadata: Metadata = { title: { default: "Studio", template: "%s · MOZES LIFE Studio" } };
 
 // Navigation lists ONLY areas that are implemented. New areas are added as they ship.
-const NAV = [{ href: "/studio", label: "לוח בקרה" }] as const;
+const NAV = [
+  { href: "/studio", label: "לוח בקרה" },
+  { href: "/studio/preview/demo", label: "הדגמת נגן" },
+] as const;
 
 export default async function StudioLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
@@ -38,17 +41,7 @@ export default async function StudioLayout({ children }: { children: React.React
         </div>
       </header>
       <div className="studio-body">
-        <nav className="studio-nav" aria-label="ניווט ראשי">
-          <ul>
-            {NAV.map((item) => (
-              <li key={item.href}>
-                <Link href={item.href} aria-current="page">
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <StudioNav items={NAV} />
         <main id="main" className="studio-main" tabIndex={-1}>
           {children}
         </main>

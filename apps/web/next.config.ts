@@ -30,7 +30,7 @@ const securityHeaders = [
 const config: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
-  transpilePackages: ["@mozes/authz"],
+  transpilePackages: ["@mozes/authz", "@mozes/content-schema", "@mozes/player-core", "@mozes/player-react", "@mozes/validator"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

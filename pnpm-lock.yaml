@@ -29,6 +29,18 @@ importers:
       '@mozes/authz':
         specifier: workspace:*
         version: link:../../packages/authz
+      '@mozes/content-schema':
+        specifier: workspace:*
+        version: link:../../packages/content-schema
+      '@mozes/player-core':
+        specifier: workspace:*
+        version: link:../../packages/player-core
+      '@mozes/player-react':
+        specifier: workspace:*
+        version: link:../../packages/player-react
+      '@mozes/validator':
+        specifier: workspace:*
+        version: link:../../packages/validator
       better-auth:
         specifier: 1.7.10
         version: 1.7.10(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@types/pg@8.23.1)(kysely@0.29.7)(pg@8.23.1))(next@16.4.2(@playwright/test@1.63.0)(@types/node@22.20.5)(react-dom@19.2.9(react@19.2.9))(react@19.2.9))(pg@8.23.1)(react-dom@19.2.9(react@19.2.9))(react@19.2.9)(vitest@4.1.12(@types/node@22.20.5)(vite@8.3.5(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15)))
@@ -80,6 +92,40 @@ importers:
         version: 4.23.15
 
   packages/authz: {}
+
+  packages/content-schema:
+    dependencies:
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+
+  packages/player-core:
+    dependencies:
+      '@mozes/content-schema':
+        specifier: workspace:*
+        version: link:../content-schema
+
+  packages/player-react:
+    dependencies:
+      '@mozes/content-schema':
+        specifier: workspace:*
+        version: link:../content-schema
+      '@mozes/player-core':
+        specifier: workspace:*
+        version: link:../player-core
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: 19.2.9
+        version: 19.2.9
+
+  packages/validator:
+    dependencies:
+      '@mozes/content-schema':
+        specifier: workspace:*
+        version: link:../content-schema
 
 packages:
 
