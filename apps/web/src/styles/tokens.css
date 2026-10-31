@@ -1,0 +1,60 @@
+/*
+ * MOZES LIFE design tokens — v0.1 (pending Creative Director approval).
+ * Brand colors sampled from the approved logo file. Contrast ratios (WCAG 2.x)
+ * are noted next to each text/background pairing that the UI relies on.
+ */
+:root {
+  /* Brand */
+  --brand-navy: #182f3c;          /* logo "MOZES" */
+  --brand-green: #77ae26;         /* logo "LIFE" — NOT for text on light bg (2.67:1) */
+  --brand-green-text: #4a7a12;    /* green text on light bg: 4.73:1 on --bg */
+  --brand-black: #000000;         /* logo backdrop */
+
+  /* Surfaces */
+  --bg: #f3f6f5;
+  --surface: #ffffff;
+  --surface-sunken: #e8eeec;
+  --border: #d3dddb;
+  --border-strong: #a7b6b4;
+
+  /* Text */
+  --text: #182f3c;                /* 13.9:1 on white */
+  --text-muted: #566b70;          /* 5.17:1 on --bg, 5.63:1 on white */
+  --text-on-navy: #ffffff;        /* 13.9:1 */
+  --text-on-navy-muted: #a9bcc0;  /* 7.04:1 */
+  --text-on-green: #182f3c;       /* 5.21:1 — never white on green */
+
+  /* Status */
+  --danger: #b42318;              /* 6.05:1 on white */
+  --danger-bg: #fef3f2;
+  --success: #3f6b0f;
+  --success-bg: #f1f8e8;
+  --warning: #8a5a00;
+  --warning-bg: #fff7e6;
+
+  /* Focus — must be visible on every surface */
+  --focus-ring: 0 0 0 3px #ffffff, 0 0 0 5px #182f3c;
+
+  /* Typography */
+  --font-sans: "Heebo", system-ui, "Segoe UI", Arial, sans-serif;
+  --fs-xs: 0.8125rem;
+  --fs-sm: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: 2rem;
+
+  /* Spacing (4px scale) */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-8: 3rem;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgb(24 47 60 / 0.06), 0 1px 3px rgb(24 47 60 / 0.08);
+}
