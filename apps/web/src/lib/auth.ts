@@ -9,6 +9,7 @@ import { env } from "./env";
 export const auth = betterAuth({
   appName: "MOZES LIFE",
   baseURL: env().BETTER_AUTH_URL,
+  trustedOrigins: [env().BETTER_AUTH_URL],
   secret: env().BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -37,7 +38,8 @@ export const auth = betterAuth({
     customRules: { "/sign-in/email": { window: 60, max: env().AUTH_SIGNIN_RATE_LIMIT_PER_MIN } },
   },
   advanced: {
-    useSecureCookies: env().NODE_ENV === "production",
+    // Secure cookies whenever the site is served over HTTPS.
+    useSecureCookies: env().BETTER_AUTH_URL.startsWith("https://"),
   },
   telemetry: { enabled: false },
   plugins: [nextCookies()], // must stay last

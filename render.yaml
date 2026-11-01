@@ -1,0 +1,28 @@
+# Render Blueprint — free preview hosting for MOZES LIFE.
+# The database is external (Neon, free tier); paste its connection string as DATABASE_URL.
+services:
+  - type: web
+    name: mozes-life
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: .
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @mozes/web build
+    startCommand: pnpm --filter @mozes/web start:hosted
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false # paste the Neon connection string
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false
+      - key: BOOTSTRAP_ADMIN_NAME
+        sync: false
+      - key: BOOTSTRAP_DEMO_COURSE
+        value: "true"

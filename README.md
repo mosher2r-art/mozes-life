@@ -26,6 +26,9 @@ packages/validator       בדיקת תקינות טכנית (אינה אישור
 packages/player-react    רכיבי התצוגה של הנגן
 ```
 
+## העלאה לאוויר
+מדריך צעד אחר צעד: [DEPLOY.md](DEPLOY.md) (Render + Neon, חינם לתצוגה).
+
 ## הרצה מקומית
 דרישות: Node 22, pnpm 10, PostgreSQL 16.
 

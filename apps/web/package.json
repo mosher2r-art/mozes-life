@@ -14,7 +14,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "user:create": "tsx scripts/create-user.ts",
-    "demo:publish": "tsx scripts/publish-demo.ts"
+    "demo:publish": "tsx scripts/publish-demo.ts",
+    "bootstrap": "tsx scripts/bootstrap.ts",
+    "start:hosted": "pnpm db:migrate && pnpm bootstrap && next start"
   },
   "dependencies": {
     "@fontsource/heebo": "5.3.0",
