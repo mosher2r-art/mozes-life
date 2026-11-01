@@ -1,31 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 625">
   <defs>
     <pattern id="g" width="25" height="25" patternUnits="userSpaceOnUse">
-      <path d="M25 0H0V25" fill="none" stroke="#1d3440" stroke-width="1"/>
+      <path d="M25 0H0V25" fill="none" stroke="#e8eeec" stroke-width="1"/>
     </pattern>
   </defs>
-  <rect width="1000" height="625" fill="#0f1d24"/>
+  <rect width="1000" height="625" fill="#ffffff"/>
   <rect width="1000" height="625" fill="url(#g)"/>
   <!-- walls -->
-  <path d="M60 60H110M270 60H940V380M940 520V565H60V60" fill="none" stroke="#dfe8e7" stroke-width="10" stroke-linecap="square"/>
+  <path d="M60 60H110M270 60H940V380M940 520V565H60V60" fill="none" stroke="#142833" stroke-width="10" stroke-linecap="square"/>
   <!-- door top + swing -->
-  <path d="M110 60H270" stroke="#8cc43c" stroke-width="6"/>
-  <path d="M110 60A160 160 0 0 0 270 220" fill="none" stroke="#8cc43c" stroke-width="2" stroke-dasharray="6 6"/>
-  <path d="M110 60V220" stroke="#8cc43c" stroke-width="3"/>
+  <path d="M110 60H270" stroke="#5e9a1c" stroke-width="6"/>
+  <path d="M110 60A160 160 0 0 0 270 220" fill="none" stroke="#5e9a1c" stroke-width="2" stroke-dasharray="6 6"/>
+  <path d="M110 60V220" stroke="#5e9a1c" stroke-width="3"/>
   <!-- door side + swing -->
-  <path d="M940 380V520" stroke="#8cc43c" stroke-width="6"/>
-  <path d="M940 380A140 140 0 0 0 800 520" fill="none" stroke="#8cc43c" stroke-width="2" stroke-dasharray="6 6"/>
-  <path d="M940 380H800" stroke="#8cc43c" stroke-width="3"/>
+  <path d="M940 380V520" stroke="#5e9a1c" stroke-width="6"/>
+  <path d="M940 380A140 140 0 0 0 800 520" fill="none" stroke="#5e9a1c" stroke-width="2" stroke-dasharray="6 6"/>
+  <path d="M940 380H800" stroke="#5e9a1c" stroke-width="3"/>
   <!-- table + chairs -->
-  <rect x="390" y="250" width="220" height="130" rx="8" fill="none" stroke="#a3b4b8" stroke-width="3"/>
-  <g fill="none" stroke="#7f9397" stroke-width="2">
+  <rect x="390" y="250" width="220" height="130" rx="8" fill="none" stroke="#475c62" stroke-width="3"/>
+  <g fill="none" stroke="#8a9c9e" stroke-width="2">
     <rect x="420" y="215" width="50" height="26" rx="6"/><rect x="530" y="215" width="50" height="26" rx="6"/>
     <rect x="420" y="389" width="50" height="26" rx="6"/><rect x="530" y="389" width="50" height="26" rx="6"/>
   </g>
   <!-- cabinet -->
-  <rect x="710" y="110" width="170" height="80" rx="4" fill="none" stroke="#a3b4b8" stroke-width="3"/>
-  <path d="M795 110V190" stroke="#7f9397" stroke-width="2"/>
+  <rect x="710" y="110" width="170" height="80" rx="4" fill="none" stroke="#475c62" stroke-width="3"/>
+  <path d="M795 110V190" stroke="#8a9c9e" stroke-width="2"/>
   <!-- sofa -->
-  <path d="M120 450h170v80H120z M120 450v-20h170v20" fill="none" stroke="#a3b4b8" stroke-width="3"/>
-  <text x="500" y="600" fill="#7f9397" font-family="Heebo, Arial, sans-serif" font-size="18" text-anchor="middle">תרשים קומה · הדגמה</text>
+  <path d="M120 450h170v80H120z M120 450v-20h170v20" fill="none" stroke="#475c62" stroke-width="3"/>
+  <text x="500" y="600" fill="#5a6e74" font-family="Heebo, Arial, sans-serif" font-size="18" text-anchor="middle">תרשים קומה · הדגמה</text>
 </svg>
