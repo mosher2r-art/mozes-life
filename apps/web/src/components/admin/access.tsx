@@ -204,7 +204,7 @@ interface BulkRow { line: number; name: string; email: string; status: "created"
  * Paste a list of people (from Excel or email). Missing accounts are created with temporary
  * passwords; everyone is added to the organization, or granted the chosen courses directly.
  */
-export function PeopleImport({ orgId, courses, title }: { orgId?: string; courses?: CourseOption[]; title: string }) {
+export function PeopleImport({ orgId, courses, title, endpoint }: { orgId?: string; courses?: CourseOption[]; title: string; endpoint?: string }) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [selected, setSelected] = useState<string[]>(courses && courses.length === 1 ? [courses[0]!.id] : []);
@@ -225,7 +225,9 @@ export function PeopleImport({ orgId, courses, title }: { orgId?: string; course
       setPending(true);
       setError(null);
       setResults(null);
-      const r = await call("/api/studio/people", "POST", { text, ...(orgId ? { orgId } : { courseIds: selected, validFrom: from, validUntil: until }) });
+      const r = endpoint
+        ? await call(endpoint, "POST", { text })
+        : await call("/api/studio/people", "POST", { text, ...(orgId ? { orgId } : { courseIds: selected, validFrom: from, validUntil: until }) });
       setPending(false);
       if (r.ok) { setResults(r.data.results as BulkRow[]); setText(""); router.refresh(); }
       else setError(String(r.data.message ?? "הפעולה נכשלה."));

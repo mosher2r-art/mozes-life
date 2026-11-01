@@ -3,11 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { can, ROLE_LABELS_HE } from "@mozes/authz";
 import { GrantForm, GrantTable, PeopleImport } from "@/components/admin/access";
-import { OrgMemberForm, RemoveMemberButton } from "@/components/admin/forms";
+import { OrgMemberForm, RemoveMemberButton, SeatLimitForm } from "@/components/admin/forms";
 import { Forbidden } from "@/components/Forbidden";
 import { getCurrentUser } from "@/server/actor";
 import { grantsForOrg, publishedCourseOptions } from "@/server/access";
-import { getOrg, ORG_TYPE_LABEL } from "@/server/admin-users";
+import { getOrg, ORG_TYPE_LABEL, seatUsage } from "@/server/admin-users";
 
 export const metadata: Metadata = { title: "ארגון" };
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export default async function OrgPage({ params }: { params: Promise<{ id: string
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) notFound();
   const data = await getOrg(id);
   if (!data) notFound();
-  const [courses, grants] = await Promise.all([publishedCourseOptions(), grantsForOrg(id)]);
+  const [courses, grants, seats] = await Promise.all([publishedCourseOptions(), grantsForOrg(id), seatUsage(id)]);
   return (
     <div className="page">
       <header className="page-head">
@@ -37,8 +37,12 @@ export default async function OrgPage({ params }: { params: Promise<{ id: string
         <h2 id="org-members" className="section-title">חברי הארגון ({data.members.length})</h2>
         <div className="split-even">
           <PeopleImport orgId={id} title="הוספת רשימת אנשים" />
-          <OrgMemberForm orgId={id} />
+          <div className="stack-sm">
+            <OrgMemberForm orgId={id} />
+            <SeatLimitForm orgId={id} limit={seats.limit} used={seats.used} />
+          </div>
         </div>
+        <p className="muted">מנהלי הארגון רואים את ההתקדמות ומנהלים חברים בכתובת <span dir="ltr">/org</span>.</p>
       </section>
       <div className="table-wrap">
         <table className="table">

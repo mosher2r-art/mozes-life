@@ -119,6 +119,21 @@ export async function setDisabled(actorId: string, userId: string, disabled: boo
 
 /* ───────────── Organizations ───────────── */
 
+/** Seats used = members of the organization (any role). */
+export async function seatUsage(orgId: string): Promise<{ used: number; limit: number | null }> {
+  const [org] = await db.select({ limit: organization.seatLimit }).from(organization).where(eq(organization.id, orgId));
+  const [n] = await db.select({ n: sql<number>`count(*)::int` }).from(membership).where(eq(membership.orgId, orgId));
+  return { used: n?.n ?? 0, limit: org?.limit ?? null };
+}
+
+export async function setSeatLimit(actorId: string, orgId: string, limit: number | null): Promise<void> {
+  await db.update(organization).set({ seatLimit: limit }).where(eq(organization.id, orgId));
+  await db.insert(auditLog).values({ actorId, action: "org.set_seats", entity: "organization", entityId: orgId, details: { limit } });
+}
+
+const seatsMessage = (limit: number, used: number, adding: number) =>
+  `חריגה ממכסת המשתמשים של הארגון: ${used} מתוך ${limit} בשימוש, וניסיתם להוסיף ${adding}. פנו ל-MOZES LIFE להגדלת המכסה.`;
+
 export const ORG_TYPES = ["company", "institution", "building", "private"] as const;
 export const ORG_TYPE_LABEL: Record<(typeof ORG_TYPES)[number], string> = { company: "חברה", institution: "מוסד", building: "בניין מגורים", private: "פרטי" };
 
@@ -129,6 +144,7 @@ export async function listOrgs() {
       name: organization.name,
       type: organization.type,
       status: organization.status,
+      seatLimit: organization.seatLimit,
       members: sql<number>`(select count(*)::int from ${membership} where ${membership.orgId} = ${organization.id})`,
     })
     .from(organization)
@@ -157,6 +173,11 @@ export async function getOrg(id: string) {
 export async function addMember(actorId: string, orgId: string, email: string, role: OrgRole): Promise<{ ok: true } | { ok: false; message: string }> {
   const [u] = await db.select({ id: user.id }).from(user).where(eq(user.email, email.trim().toLowerCase()));
   if (!u) return { ok: false, message: "לא נמצא משתמש עם האימייל הזה. צרו אותו קודם במסך המשתמשים." };
+  const [already] = await db.select({ u: membership.userId }).from(membership).where(and(eq(membership.orgId, orgId), eq(membership.userId, u.id)));
+  if (!already) {
+    const seats = await seatUsage(orgId);
+    if (seats.limit !== null && seats.used + 1 > seats.limit) return { ok: false, message: seatsMessage(seats.limit, seats.used, 1) };
+  }
   await db.insert(membership).values({ orgId, userId: u.id, role }).onConflictDoUpdate({ target: [membership.orgId, membership.userId], set: { role } });
   await db.insert(auditLog).values({ actorId, action: "org.add_member", entity: "organization", entityId: orgId, details: { email, role } });
   return { ok: true };
@@ -199,6 +220,15 @@ export async function bulkPeople(
     if (!org) return { ok: false, message: "הארגון לא נמצא." };
   }
   const existing = new Map((await usersByEmail(people.map((p) => p.email))).map((u) => [u.email, u]));
+  if (input.orgId) {
+    // All-or-nothing seat check before any account is created.
+    const seats = await seatUsage(input.orgId);
+    if (seats.limit !== null) {
+      const memberIds = new Set((await db.select({ u: membership.userId }).from(membership).where(eq(membership.orgId, input.orgId))).map((m) => m.u));
+      const adding = people.filter((p) => !memberIds.has(existing.get(p.email)?.id ?? "")).length;
+      if (seats.used + adding > seats.limit) return { ok: false, message: seatsMessage(seats.limit, seats.used, adding) };
+    }
+  }
   const results: BulkResult[] = invalid.map((i) => ({ line: i.line, name: "", email: "", status: "invalid", raw: i.raw }));
   const userIds: string[] = [];
   for (const p of people) {

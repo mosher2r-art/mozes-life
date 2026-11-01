@@ -23,13 +23,13 @@ export default async function OrgsPage() {
       <NewOrgForm />
       <div className="table-wrap">
         <table className="table">
-          <thead><tr><th scope="col">ארגון</th><th scope="col">סוג</th><th scope="col">חברים</th></tr></thead>
+          <thead><tr><th scope="col">ארגון</th><th scope="col">סוג</th><th scope="col">משתמשים</th></tr></thead>
           <tbody>
             {orgs.map((o) => (
               <tr key={o.id}>
                 <th scope="row"><Link className="table-title" href={`/studio/orgs/${o.id}`}>{o.name}</Link></th>
                 <td>{ORG_TYPE_LABEL[o.type]}</td>
-                <td className="num">{o.members}</td>
+                <td className="num">{o.seatLimit ? `${o.members} / ${o.seatLimit}` : o.members}</td>
               </tr>
             ))}
           </tbody>

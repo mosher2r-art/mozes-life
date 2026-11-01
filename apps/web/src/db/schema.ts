@@ -116,6 +116,8 @@ export const organization = pgTable("organization", {
   name: text("name").notNull(),
   type: orgType("type").notNull(),
   status: text("status", { enum: ["active", "suspended"] }).notNull().default("active"),
+  /** Maximum number of learners in the organization (null = no limit). */
+  seatLimit: integer("seat_limit"),
   ...timestamps,
 });
 

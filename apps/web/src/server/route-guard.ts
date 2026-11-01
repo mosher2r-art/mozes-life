@@ -21,3 +21,11 @@ export async function readJson(req: Request): Promise<unknown> {
     return undefined;
   }
 }
+
+/** Like guard(), for actions scoped to one organization (org admins of that org, or system admins). */
+export async function guardOrg(action: Action, orgId: string): Promise<{ user: CurrentUser } | { response: Response }> {
+  const user = await getCurrentUser();
+  if (!user) return { response: json({ error: "unauthenticated" }, 401) };
+  if (!ID_RE.test(orgId) || !can(user.actor, action, { orgId })) return { response: json({ error: "forbidden" }, 403) };
+  return { user };
+}

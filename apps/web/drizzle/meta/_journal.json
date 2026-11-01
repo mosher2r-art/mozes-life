@@ -50,6 +50,13 @@
       "when": 1793560930859,
       "tag": "0006_course_access",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793562074373,
+      "tag": "0007_org_seats",
+      "breakpoints": true
     }
   ]
 }

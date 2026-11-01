@@ -210,3 +210,28 @@ export function RemoveMemberButton({ orgId, userId, name }: { orgId: string; use
     <button type="button" className="ed-link" aria-label={`הסרת ${name} מהארגון`} onClick={() => setConfirm(true)}>הסרה מהארגון</button>
   );
 }
+
+export function SeatLimitForm({ orgId, limit, used }: { orgId: string; limit: number | null; used: number }) {
+  const router = useRouter();
+  const [value, setValue] = useState(limit ? String(limit) : "");
+  const [msg, setMsg] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
+  return (
+    <form className="block form-grid" onSubmit={async (e) => {
+      e.preventDefault();
+      const n = value.trim() === "" ? null : Number(value);
+      if (n !== null && (!Number.isInteger(n) || n < 1)) return setMsg({ tone: "bad", text: "יש להזין מספר שלם וחיובי, או להשאיר ריק." });
+      const r = await call(`/api/studio/orgs/${orgId}`, "PATCH", { seatLimit: n });
+      setMsg(r.ok ? { tone: "ok", text: "המכסה עודכנה." } : { tone: "bad", text: "העדכון נכשל." });
+      router.refresh();
+    }}>
+      <h2 className="form-title">מכסת משתמשים</h2>
+      <div className="field">
+        <label htmlFor="seat-limit">מספר משתמשים מרבי (ריק = ללא הגבלה)</label>
+        <input id="seat-limit" type="number" min={1} inputMode="numeric" value={value} onChange={(e) => setValue(e.target.value)} />
+      </div>
+      <button className="btn btn-quiet" type="submit">שמירה</button>
+      <p className="muted form-wide">בשימוש כרגע: {used}{limit ? ` מתוך ${limit}` : ""}.</p>
+      <div className="form-wide"><Msg m={msg} /></div>
+    </form>
+  );
+}
