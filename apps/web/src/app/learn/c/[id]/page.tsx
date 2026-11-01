@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/server/actor";
 import { getLaunchData } from "@/server/learning";
 import { LearnPlayer } from "./LearnPlayer";
+import { PackagePlayer } from "./PackagePlayer";
 
 export const metadata: Metadata = { title: "קורס" };
 export const dynamic = "force-dynamic";
@@ -25,9 +26,21 @@ export default async function CoursePage({ params }: { params: Promise<{ id: str
           </svg>
           הקורסים שלי
         </Link>
-        {data.isDemo && <span className="course-demo-flag">קורס הדגמה · לא רפואי</span>}
+        {data.kind === "native" && data.isDemo && <span className="course-demo-flag">קורס הדגמה · לא רפואי</span>}
       </nav>
-      <LearnPlayer enrollmentId={data.enrollmentId} course={data.content} initialState={data.state} media={data.media} />
+      {data.kind === "native" ? (
+        <LearnPlayer enrollmentId={data.enrollmentId} course={data.content} initialState={data.state} media={data.media} />
+      ) : (
+        <PackagePlayer
+          enrollmentId={data.enrollmentId}
+          title={data.title}
+          format={data.format}
+          launchUrl={data.launchUrl}
+          cmi={data.cmi}
+          learner={data.learner}
+          initiallyDone={data.status !== "in_progress" && data.status !== "not_started"}
+        />
+      )}
     </div>
   );
 }

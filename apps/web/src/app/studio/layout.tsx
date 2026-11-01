@@ -14,6 +14,7 @@ const NAV = [
   { href: "/studio", label: "לוח בקרה", icon: "dashboard" },
   { href: "/studio/courses", label: "קורסים", icon: "book" },
   { href: "/studio/media", label: "ספריית מדיה", icon: "media" },
+  { href: "/studio/import", label: "ייבוא לומדה", icon: "import" },
   { href: "/studio/preview/demo", label: "הדגמת נגן", icon: "play" },
 ] as const;
 

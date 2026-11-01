@@ -25,6 +25,11 @@ export default async function CoursesPage() {
         <h1 className="page-title">קורסים</h1>
       </header>
       {canCreate && <NewCourseForm />}
+      {canCreate && (
+        <p className="muted">
+          יש לכם לומדה מוכנה (SCORM או HTML5)? <Link href="/studio/import">ייבוא לומדה</Link>
+        </p>
+      )}
       {courses.length === 0 ? (
         <div className="block"><p className="muted">עדיין אין קורסים. צרו את הקורס הראשון למעלה.</p></div>
       ) : (
@@ -46,6 +51,7 @@ export default async function CoursesPage() {
                   <th scope="row">
                     <Link href={`/studio/courses/${c.id}`} className="table-title">{c.title}</Link>
                     {c.isDemo && <span className="chip chip-neutral">הדגמה</span>}
+                    {c.kind === "package" && <span className="chip chip-neutral">לומדה מיובאת</span>}
                   </th>
                   <td>
                     {c.status === "published" ? (

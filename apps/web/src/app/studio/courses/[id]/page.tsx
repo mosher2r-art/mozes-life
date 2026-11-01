@@ -7,7 +7,11 @@ import { collectAssetIds } from "@/lib/collect-assets";
 import { contentHash } from "@/lib/content-hash";
 import { getCurrentUser } from "@/server/actor";
 import { resolveAssets } from "@/server/media";
-import { getEditorData } from "@/server/studio-courses";
+import { getEditorData, getPackageCourse } from "@/server/studio-courses";
+import { launchUrlFor } from "@/server/importer";
+import type { AnalysisReport } from "@/server/import/analyze";
+import { PackageCourseView } from "@/components/import/PackageCourseView";
+import { ReportView } from "@/components/import/ReportView";
 
 export const metadata: Metadata = { title: "עורך הלומדות" };
 export const dynamic = "force-dynamic";
@@ -17,6 +21,19 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
   if (!can(user?.actor, "course.view_draft")) return <Forbidden />;
   const { id } = await params;
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) notFound();
+  const pkg = await getPackageCourse(id);
+  if (pkg) {
+    return (
+      <PackageCourseView
+        courseId={id}
+        title={pkg.c.title}
+        launchUrl={pkg.p ? launchUrlFor(pkg.p.id) : null}
+        latestVersion={pkg.v?.versionNo ?? null}
+        canPublish={can(user?.actor, "course.publish")}
+        report={pkg.p ? <ReportView report={pkg.p.report as AnalysisReport} /> : null}
+      />
+    );
+  }
   const data = await getEditorData(id);
   if (!data) notFound();
   const media = await resolveAssets(collectAssetIds(data.content));

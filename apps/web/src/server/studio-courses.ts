@@ -5,7 +5,7 @@ import { Course, type CourseInput, flattenScreens } from "@mozes/content-schema"
 import { validateCourse } from "@mozes/validator";
 import { db } from "@/db";
 import { contentHash } from "@/lib/content-hash";
-import { auditLog, course, courseDraft, courseVersion, enrollment, user } from "@/db/schema";
+import { auditLog, course, courseDraft, courseVersion, coursePackage, enrollment, user } from "@/db/schema";
 
 const rid = (prefix: string) => `${prefix}-${randomBytes(5).toString("hex")}`;
 
@@ -14,6 +14,7 @@ export interface CourseRow {
   title: string;
   status: "draft" | "published" | "archived";
   isDemo: boolean;
+  kind: "native" | "package";
   latestVersion: number | null;
   learners: number;
   draftUpdatedAt: Date | null;
@@ -27,6 +28,7 @@ export async function listCourses(): Promise<CourseRow[]> {
       title: course.title,
       status: course.status,
       isDemo: course.isDemo,
+      kind: course.kind,
       publishedHash: courseVersion.contentHash,
       latestVersion: courseVersion.versionNo,
       draftContent: courseDraft.content,
@@ -42,6 +44,7 @@ export async function listCourses(): Promise<CourseRow[]> {
     title: r.title,
     status: r.status,
     isDemo: r.isDemo,
+    kind: r.kind,
     latestVersion: r.latestVersion ?? null,
     learners: r.learners,
     draftUpdatedAt: r.draftUpdatedAt ?? null,
@@ -153,6 +156,9 @@ export type PublishResult =
   | { ok: false; reason: "not_found" | "invalid" | "medical_unconfirmed" | "unchanged"; errors?: string[] };
 
 export async function publishCourse(courseId: string, actorId: string, medicalConfirmed: boolean): Promise<PublishResult> {
+  const [kindRow] = await db.select({ kind: course.kind, packageId: course.packageId }).from(course).where(eq(course.id, courseId));
+  if (!kindRow) return { ok: false, reason: "not_found" };
+  if (kindRow.kind === "package") return publishPackageCourse(courseId, actorId, kindRow.packageId);
   return db.transaction(async (tx) => {
     const [draft] = await tx.select().from(courseDraft).where(eq(courseDraft.courseId, courseId)).for("update");
     if (!draft) return { ok: false, reason: "not_found" } as const;
@@ -211,4 +217,33 @@ export async function enrollByEmail(courseId: string, actorId: string, email: st
   await db.insert(enrollment).values({ id: randomUUID(), userId: u.id, courseId });
   await db.insert(auditLog).values({ actorId, action: "enrollment.create", entity: "course", entityId: courseId, details: { email } });
   return { ok: true, created: true };
+}
+
+/** Imported courseware: the published version points at an immutable, verified package. */
+async function publishPackageCourse(courseId: string, actorId: string, packageId: string | null): Promise<PublishResult> {
+  if (!packageId) return { ok: false, reason: "invalid", errors: ["לקורס לא משויכת חבילה."] };
+  const [pkg] = await db.select().from(coursePackage).where(eq(coursePackage.id, packageId));
+  if (!pkg) return { ok: false, reason: "invalid", errors: ["החבילה לא נמצאה."] };
+  const content = { kind: "package", packageId, format: pkg.format };
+  const hash = contentHash(content);
+  return db.transaction(async (tx) => {
+    const [latest] = await tx.select().from(courseVersion).where(eq(courseVersion.courseId, courseId)).orderBy(desc(courseVersion.versionNo)).limit(1);
+    if (latest?.contentHash === hash) return { ok: false, reason: "unchanged" } as const;
+    const versionNo = (latest?.versionNo ?? 0) + 1;
+    const versionId = randomUUID();
+    await tx.insert(courseVersion).values({ id: versionId, courseId, versionNo, content, contentHash: hash, publishedBy: actorId });
+    await tx.update(course).set({ status: "published", publishedVersionId: versionId }).where(eq(course.id, courseId));
+    await tx.insert(auditLog).values({ actorId, action: "course.publish", entity: "course", entityId: courseId, details: { versionNo, packageId } });
+    return { ok: true, versionNo } as const;
+  });
+}
+
+export async function getPackageCourse(courseId: string) {
+  const [row] = await db
+    .select({ c: course, p: coursePackage, v: courseVersion })
+    .from(course)
+    .leftJoin(coursePackage, eq(coursePackage.id, course.packageId))
+    .leftJoin(courseVersion, eq(courseVersion.id, course.publishedVersionId))
+    .where(and(eq(course.id, courseId), eq(course.kind, "package")));
+  return row ?? null;
 }

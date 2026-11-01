@@ -154,6 +154,8 @@ export const auditLog = pgTable(
 
 export const courseStatus = pgEnum("course_status", ["draft", "published", "archived"]);
 
+export const courseKind = pgEnum("course_kind", ["native", "package"]);
+
 export const course = pgTable("course", {
   id: text("id").primaryKey(),
   slug: text("slug").notNull().unique(),
@@ -165,6 +167,10 @@ export const course = pgTable("course", {
   status: courseStatus("status").notNull().default("draft"),
   /** Marks non-production demo content so it is never sold or certified. */
   isDemo: boolean("is_demo").notNull().default(false),
+  /** native = built in the editor; package = imported SCORM/HTML5 courseware. */
+  kind: courseKind("kind").notNull().default("native"),
+  /** For package courses: the package currently offered to new learners. */
+  packageId: text("package_id"),
   publishedVersionId: text("published_version_id"),
   createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
   ...timestamps,
@@ -246,3 +252,34 @@ export const asset = pgTable(
   },
   (t) => [index("asset_kind_idx").on(t.kind, t.status)],
 );
+
+/* ───────────── Imported courseware ───────────── */
+
+export const packageFormat = pgEnum("package_format", ["scorm12", "scorm2004", "html5"]);
+
+/** An upload being analysed in the Import Center. */
+export const importJob = pgTable("import_job", {
+  id: text("id").primaryKey(),
+  filename: text("filename").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  storageKey: text("storage_key").notNull(),
+  status: text("status", { enum: ["uploading", "analysed", "rejected", "imported"] }).notNull().default("uploading"),
+  report: jsonb("report"),
+  packageId: text("package_id"),
+  courseId: text("course_id"),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  ...timestamps,
+});
+
+/** Extracted, verified courseware, stored under `packages/<id>/`. Immutable. */
+export const coursePackage = pgTable("course_package", {
+  id: text("id").primaryKey(),
+  format: packageFormat("format").notNull(),
+  title: text("title").notNull(),
+  launchPath: text("launch_path").notNull(),
+  fileCount: integer("file_count").notNull(),
+  totalBytes: integer("total_bytes").notNull(),
+  report: jsonb("report").notNull(),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

@@ -33,5 +33,7 @@ jobs:
           DATABASE_URL: postgres://placeholder:placeholder@localhost:5432/placeholder
           BETTER_AUTH_SECRET: ci-build-placeholder-secret-0123456789abcdef
           BETTER_AUTH_URL: http://localhost:3000
+          # Build-time CSP must allow the test package origin (see playwright.config.ts)
+          PACKAGE_ORIGIN: http://127.0.0.1:3100
       - run: pnpm --filter @mozes/web exec playwright install --with-deps chromium
       - run: pnpm e2e

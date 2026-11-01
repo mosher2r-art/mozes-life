@@ -44,7 +44,7 @@ export interface UploadTarget {
 }
 
 /** Where the browser should PUT the file. */
-export async function createUpload(key: string, mime: string, assetId: string): Promise<UploadTarget> {
+export async function createUpload(key: string, mime: string, assetId: string, localUploadPath?: string): Promise<UploadTarget> {
   const d = driver();
   if (d === "r2") {
     const { client, objectUrl } = r2();
@@ -53,7 +53,7 @@ export async function createUpload(key: string, mime: string, assetId: string): 
     const signed = await client.sign(new Request(url, { method: "PUT", headers: { "content-type": mime } }), { aws: { signQuery: true } });
     return { url: signed.url, method: "PUT", headers: { "content-type": mime } };
   }
-  if (d === "local") return { url: `/api/studio/media/${assetId}/content`, method: "PUT", headers: { "content-type": mime } };
+  if (d === "local") return { url: localUploadPath ?? `/api/studio/media/${assetId}/content`, method: "PUT", headers: { "content-type": mime } };
   throw new Error("media storage is not configured");
 }
 
@@ -142,3 +142,61 @@ export async function serveLocal(key: string, mime: string, rangeHeader: string 
   }
   return new Response(Readable.toWeb(createReadStream(file)) as ReadableStream, { status: 200, headers: { ...headers, "content-length": String(size) } });
 }
+
+/** Writes one object server-side (used when extracting imported packages). */
+export async function putObject(key: string, body: NodeJS.ReadableStream | Buffer, size: number, contentType: string): Promise<void> {
+  const d = driver();
+  if (d === "local") {
+    const file = path.join(localDir(), safeKey(key));
+    await mkdir(path.dirname(file), { recursive: true });
+    if (Buffer.isBuffer(body)) {
+      const { writeFile } = await import("node:fs/promises");
+      await writeFile(file, body);
+    } else await pipeline(body as NodeJS.ReadableStream, createWriteStream(file));
+    return;
+  }
+  if (d === "r2") {
+    const { client, objectUrl } = r2();
+    const res = await client.fetch(objectUrl(key), {
+      method: "PUT",
+      headers: { "content-type": contentType, "content-length": String(size) },
+      body: Buffer.isBuffer(body) ? new Uint8Array(body) : (Readable.toWeb(body as Readable) as ReadableStream),
+      // Node's fetch needs this for streamed request bodies.
+      ...({ duplex: "half" } as object),
+    });
+    if (!res.ok) throw new Error(`storage PUT failed: ${res.status}`);
+    return;
+  }
+  throw new Error("media storage is not configured");
+}
+
+/** Copies a stored object to a local temp file (imports are analysed from disk). */
+export async function downloadToFile(key: string, dest: string): Promise<void> {
+  const d = driver();
+  if (d === "local") {
+    const { copyFile } = await import("node:fs/promises");
+    await copyFile(path.join(localDir(), safeKey(key)), dest);
+    return;
+  }
+  if (d === "r2") {
+    const { client, objectUrl } = r2();
+    const res = await client.fetch(objectUrl(key));
+    if (!res.ok || !res.body) throw new Error(`storage GET failed: ${res.status}`);
+    await pipeline(Readable.fromWeb(res.body as never), createWriteStream(dest));
+    return;
+  }
+  throw new Error("media storage is not configured");
+}
+
+/**
+ * Origin from which imported packages are served. It MUST differ from the app's origin so
+ * third-party courseware can never read the learner's session or call the app's APIs.
+ */
+export function packageBaseUrl(): string | null {
+  const d = driver();
+  if (d === "r2") return `${r2().publicBase}/packages`;
+  if (d === "local") return process.env.PACKAGE_ORIGIN ? `${process.env.PACKAGE_ORIGIN.replace(/\/+$/, "")}/pkg` : null;
+  return null;
+}
+
+export const localPath = (key: string) => path.join(localDir(), safeKey(key));
