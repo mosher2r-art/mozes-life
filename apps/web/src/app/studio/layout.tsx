@@ -30,7 +30,7 @@ export default async function StudioLayout({ children }: { children: React.React
       </a>
       <aside className="studio-side">
         <div className="studio-brand">
-          <Logo width={160} priority />
+          <Logo width={148} priority surface="dark" />
           <span className="studio-product">STUDIO</span>
         </div>
         <StudioNav items={NAV} />
