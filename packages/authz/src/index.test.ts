@@ -11,8 +11,8 @@ describe("can()", () => {
     }
   });
 
-  it("denies everything to a user with no roles", () => {
-    for (const a of ACTIONS) expect(can(actor(), a, { orgId: "o1" })).toBe(false);
+  it("a signed-in user with no roles may only use the Academy", () => {
+    for (const a of ACTIONS) expect(can(actor(), a, { orgId: "o1" })).toBe(a === "academy.access");
   });
 
   it("grants super_admin every action", () => {
@@ -58,7 +58,7 @@ describe("can()", () => {
 
   it("ignores unknown role strings from storage", () => {
     const bogus = { userId: "x", platformRoles: ["root"], orgRoles: { o1: "owner" } } as unknown as Actor;
-    for (const a of ACTIONS) expect(can(bogus, a, { orgId: "o1" })).toBe(false);
+    for (const a of ACTIONS) expect(can(bogus, a, { orgId: "o1" })).toBe(a === "academy.access");
   });
 });
 

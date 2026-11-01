@@ -81,3 +81,28 @@ test("only system administrators can manage users and organizations", async ({ b
   expect((await p.request.post("/api/studio/orgs", { data: { name: "ארגון", type: "company" } })).status()).toBe(403);
   await ctx.close();
 });
+
+test("a learner created without an organization can use the Academy, and the 403 screen has a way out", async ({ page, browser }, info) => {
+  test.skip(info.project.name !== "desktop", "shared state; run once");
+  await loginAs(page, USERS.admin.email, USERS.admin.password);
+  await expect(page).toHaveURL(/\/studio$/);
+  await page.goto("/studio/users");
+  await page.getByLabel("שם מלא").fill("לומד פרטי");
+  await page.getByLabel("אימייל").fill("private.learner@e2e.test");
+  await page.getByLabel("ארגון").selectOption({ label: "ללא ארגון" });
+  await page.getByRole("button", { name: "יצירת משתמש" }).click();
+  const pass = (await page.locator(".reveal-pass").textContent())!.trim();
+
+  const ctx = await browser.newContext();
+  const p = await ctx.newPage();
+  await loginAs(p, "private.learner@e2e.test", pass);
+  await expect(p).toHaveURL(/\/learn$/);
+  await expect(p.getByRole("heading", { name: "הקורסים שלי" })).toBeVisible();
+  await expect(p.getByText("אין לך הרשאה לאזור הזה")).toHaveCount(0);
+
+  await p.goto("/studio");
+  await expect(p.getByRole("heading", { name: "אין לך הרשאה לאזור הזה" })).toBeVisible();
+  await p.getByRole("button", { name: "התנתקות" }).click();
+  await expect(p).toHaveURL(/\/login$/);
+  await ctx.close();
+});

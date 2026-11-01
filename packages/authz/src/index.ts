@@ -93,8 +93,12 @@ export function isOrgRole(value: unknown): value is OrgRole {
   return typeof value === "string" && (ORG_ROLES as readonly string[]).includes(value);
 }
 
+/** Every signed-in, active account may use the Academy (individual learners have no organization). */
+const ANY_SIGNED_IN: ReadonlySet<Action> = new Set<Action>(["academy.access"]);
+
 export function can(actor: Actor | null | undefined, action: Action, resource: Resource = {}): boolean {
   if (!actor) return false;
+  if (ANY_SIGNED_IN.has(action)) return true;
 
   // Unknown role strings (e.g. stale DB values) grant nothing.
   for (const role of actor.platformRoles) {
