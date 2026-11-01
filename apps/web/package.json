@@ -13,7 +13,8 @@
     "e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
-    "user:create": "tsx scripts/create-user.ts"
+    "user:create": "tsx scripts/create-user.ts",
+    "demo:publish": "tsx scripts/publish-demo.ts"
   },
   "dependencies": {
     "@fontsource/heebo": "5.3.0",

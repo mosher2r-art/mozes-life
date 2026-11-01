@@ -2,12 +2,14 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 const timestamps = {
@@ -146,4 +148,68 @@ export const auditLog = pgTable(
     index("audit_entity_idx").on(t.entity, t.entityId),
     index("audit_created_idx").on(t.createdAt),
   ],
+);
+
+/* ───────────── Courses & learning ───────────── */
+
+export const courseStatus = pgEnum("course_status", ["draft", "published", "archived"]);
+
+export const course = pgTable("course", {
+  id: text("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  summary: text("summary").notNull().default(""),
+  /** Public path or asset URL of the cover image. */
+  coverUrl: text("cover_url"),
+  estimatedMinutes: integer("estimated_minutes"),
+  status: courseStatus("status").notNull().default("draft"),
+  /** Marks non-production demo content so it is never sold or certified. */
+  isDemo: boolean("is_demo").notNull().default(false),
+  publishedVersionId: text("published_version_id"),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  ...timestamps,
+});
+
+/** Immutable snapshot of course content at publish time. */
+export const courseVersion = pgTable(
+  "course_version",
+  {
+    id: text("id").primaryKey(),
+    courseId: text("course_id")
+      .notNull()
+      .references(() => course.id, { onDelete: "cascade" }),
+    versionNo: integer("version_no").notNull(),
+    content: jsonb("content").notNull(),
+    contentHash: text("content_hash").notNull(),
+    publishedBy: text("published_by").references(() => user.id, { onDelete: "set null" }),
+    publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("course_version_no_idx").on(t.courseId, t.versionNo)],
+);
+
+export const enrollmentStatus = pgEnum("enrollment_status", ["not_started", "in_progress", "completed", "passed", "failed"]);
+
+export const enrollment = pgTable(
+  "enrollment",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    courseId: text("course_id")
+      .notNull()
+      .references(() => course.id, { onDelete: "cascade" }),
+    /** Pinned at first launch; a later publish does not change an attempt in progress. */
+    courseVersionId: text("course_version_id").references(() => courseVersion.id, { onDelete: "restrict" }),
+    status: enrollmentStatus("status").notNull().default("not_started"),
+    progressPercent: integer("progress_percent").notNull().default(0),
+    scorePercent: integer("score_percent"),
+    /** player-core state, produced server-side by replaying learner events. */
+    state: jsonb("state"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("enrollment_user_course_idx").on(t.userId, t.courseId), index("enrollment_user_idx").on(t.userId)],
 );

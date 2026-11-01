@@ -19,8 +19,10 @@ const STATUS = { done: "הושלם", next: "השלב הבא", planned: "מתוכ
 
 async function stats() {
   try {
-    const r = await db.execute<{ users: number; orgs: number }>(
-      sql`select (select count(*) from "user")::int as users, (select count(*) from organization)::int as orgs`,
+    const r = await db.execute<{ users: number; orgs: number; courses: number; enrollments: number }>(
+      sql`select (select count(*) from "user")::int as users, (select count(*) from organization)::int as orgs,
+          (select count(*) from course where status = 'published')::int as courses,
+          (select count(*) from enrollment)::int as enrollments`,
     );
     return { ok: true as const, ...r.rows[0]! };
   } catch {
@@ -53,7 +55,11 @@ export default async function StudioDashboard() {
         </div>
         <div className="metric">
           <span className="metric-label">קורסים מפורסמים</span>
-          <span className="metric-value num">0</span>
+          <span className="metric-value num">{s.ok ? s.courses : "—"}</span>
+        </div>
+        <div className="metric">
+          <span className="metric-label">הרשמות לקורסים</span>
+          <span className="metric-value num">{s.ok ? s.enrollments : "—"}</span>
         </div>
       </section>
 

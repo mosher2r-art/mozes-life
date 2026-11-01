@@ -14,6 +14,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@mozes/content-schema": "workspace:*"
+    "@mozes/content-schema": "workspace:*",
+    "zod": "4.6.7"
   }
 }

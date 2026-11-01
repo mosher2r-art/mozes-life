@@ -104,10 +104,11 @@ test.describe("editor", () => {
 });
 
 test.describe("learner", () => {
-  test("lands in Academy with an honest empty state", async ({ page }, info) => {
+  test("lands in Academy with their enrolled courses", async ({ page }, info) => {
     await login(page, "learner");
     await expect(page).toHaveURL(/\/learn$/);
-    await expect(page.getByText("עדיין לא שויכו אליך קורסים")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "הקורסים שלי" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "הדגמת נגן MOZES LIFE" }).first()).toBeVisible();
     await expectNoHorizontalScroll(page);
     await expectNoA11yViolations(page);
     await page.screenshot({ path: `test-results/screens/learn-${info.project.name}.png`, fullPage: true });

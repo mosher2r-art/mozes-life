@@ -174,6 +174,10 @@ export interface CoursePlayerProps {
   initialState?: PlayerState;
   /** Called after every successful state change (persist progress here). */
   onStateChange?: (state: PlayerState) => void;
+  /** Called with each accepted event, so a server can replay it authoritatively. */
+  onEvent?: (event: PlayerEvent, next: PlayerState) => void;
+  /** Optional element rendered in the top bar (e.g. a save status). */
+  status?: React.ReactNode;
   /** Called when an event is rejected by the engine (should not happen in normal use). */
   onError?: (error: unknown) => void;
 }
@@ -192,7 +196,7 @@ const EYEBROW: Record<Screen["template"], string> = {
 
 const STATUS_TEXT = { passed: "עברת את הקורס", failed: "לא הגעת לציון המעבר", completed: "סיימת את הקורס", in_progress: "" } as const;
 
-export function CoursePlayer({ course, resolveMedia, initialState, onStateChange, onError }: CoursePlayerProps) {
+export function CoursePlayer({ course, resolveMedia, initialState, onStateChange, onEvent, onError, status }: CoursePlayerProps) {
   const [state, setState] = useState<PlayerState>(() => (initialState ? reconcile(course, initialState) : start(course)));
   const [revealedFor, setRevealedFor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -214,12 +218,13 @@ export function CoursePlayer({ course, resolveMedia, initialState, onStateChange
         stateRef.current = next;
         setState(next);
         onStateChange?.(next);
+        onEvent?.(event, next);
       } catch (e) {
         onError?.(e);
         setError(e instanceof EngineError && e.code === "SCREEN_INCOMPLETE" ? "יש להשלים את המסך לפני שממשיכים" : "הפעולה לא בוצעה");
       }
     },
-    [course, onStateChange, onError],
+    [course, onStateChange, onEvent, onError],
   );
 
   // Move focus to the new screen's title for keyboard and screen-reader users.
@@ -255,7 +260,10 @@ export function CoursePlayer({ course, resolveMedia, initialState, onStateChange
         <header className="mp-topbar">
           <div className="mp-topbar-row">
             <span className="mp-course-title">{course.title}</span>
-            <span className="mp-progress-label">{ref.unit.title}</span>
+            <span className="mp-progress-label">
+              {ref.unit.title}
+              {status}
+            </span>
           </div>
           <div
             className="mp-chapters"

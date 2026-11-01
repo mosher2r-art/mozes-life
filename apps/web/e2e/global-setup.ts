@@ -14,4 +14,5 @@ export default function globalSetup() {
   run(["user:create", "--email", USERS.admin.email, "--name", USERS.admin.name, "--role", "super_admin"], { MOZES_NEW_PASSWORD: USERS.admin.password });
   run(["user:create", "--email", USERS.editor.email, "--name", USERS.editor.name, "--role", "editor"], { MOZES_NEW_PASSWORD: USERS.editor.password });
   run(["user:create", "--email", USERS.learner.email, "--name", USERS.learner.name, "--org-name", "ארגון בדיקה", "--org-role", "learner"], { MOZES_NEW_PASSWORD: USERS.learner.password });
+  run(["demo:publish", "--enroll", USERS.learner.email]);
 }
