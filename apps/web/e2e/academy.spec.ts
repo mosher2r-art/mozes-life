@@ -60,3 +60,17 @@ test("the server rejects invalid or out-of-order events and other users' enrollm
   expect((await anon.request.post(new URL(api, page.url()).toString(), { data: { events: [{ type: "continue" }] } })).status()).toBe(401);
   await anon.close();
 });
+
+test("course page fits the phone screen", async ({ page }, info) => {
+  test.skip(info.project.name !== "mobile", "layout check for phones");
+  await login(page, "learner");
+  await page.getByRole("link", { name: /המשך ללמוד|התחלת הקורס/ }).first().click();
+  await page.waitForSelector(".mp-player");
+  for (let i = 0; i < 3; i++) {
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+    const next = page.getByRole("button", { name: "המשך", exact: true });
+    if (await next.isEnabled()) await next.click();
+    else break;
+  }
+});
