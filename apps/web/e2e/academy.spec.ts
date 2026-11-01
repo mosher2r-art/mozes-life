@@ -64,13 +64,13 @@ test("the server rejects invalid or out-of-order events and other users' enrollm
 test("course page fits the phone screen", async ({ page }, info) => {
   test.skip(info.project.name !== "mobile", "layout check for phones");
   await login(page, "learner");
-  await page.getByRole("link", { name: /המשך ללמוד|התחלת הקורס/ }).first().click();
+  await page.locator(".course-card", { hasText: "הדגמת נגן MOZES LIFE" }).getByRole("link").click();
   await page.waitForSelector(".mp-player");
   for (let i = 0; i < 3; i++) {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
     const next = page.getByRole("button", { name: "המשך", exact: true });
-    if (await next.isEnabled()) await next.click();
+    if ((await next.count()) && (await next.isEnabled())) await next.click();
     else break;
   }
 });

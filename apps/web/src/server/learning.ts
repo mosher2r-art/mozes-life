@@ -3,7 +3,9 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { Course } from "@mozes/content-schema";
 import { EngineError, type PlayerEvent, type PlayerState, reconcile, start, step, summarize } from "@mozes/player-core";
 import { db } from "@/db";
+import { collectAssetIds } from "@/lib/collect-assets";
 import { course, courseVersion, enrollment } from "@/db/schema";
+import { resolveAssets } from "./media";
 
 export interface MyCourse {
   enrollmentId: string;
@@ -49,6 +51,7 @@ export interface LaunchData {
   isDemo: boolean;
   content: Course;
   state: PlayerState;
+  media: Record<string, { src: string; mime: string }>;
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -78,17 +81,13 @@ async function loadForUpdate(tx: Tx, userId: string, enrollmentId: string) {
 }
 
 export async function getLaunchData(userId: string, enrollmentId: string): Promise<LaunchData | null> {
-  return db.transaction(async (tx) => {
+  const data = await db.transaction(async (tx) => {
     const loaded = await loadForUpdate(tx, userId, enrollmentId);
     if (!loaded) return null;
-    return {
-      enrollmentId,
-      title: loaded.row.c.title,
-      isDemo: loaded.row.c.isDemo,
-      content: loaded.content,
-      state: loaded.state,
-    };
+    return { enrollmentId, title: loaded.row.c.title, isDemo: loaded.row.c.isDemo, content: loaded.content, state: loaded.state };
   });
+  if (!data) return null;
+  return { ...data, media: await resolveAssets(collectAssetIds(data.content)) };
 }
 
 export type ApplyResult =

@@ -224,3 +224,25 @@ export const courseDraft = pgTable("course_draft", {
   updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/* ───────────── Media library ───────────── */
+
+export const assetKind = pgEnum("asset_kind", ["image", "video", "audio", "captions"]);
+export const assetStatus = pgEnum("asset_status", ["pending", "ready"]);
+
+export const asset = pgTable(
+  "asset",
+  {
+    id: text("id").primaryKey(),
+    kind: assetKind("kind").notNull(),
+    status: assetStatus("status").notNull().default("pending"),
+    filename: text("filename").notNull(),
+    mime: text("mime").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    storageKey: text("storage_key").notNull().unique(),
+    altText: text("alt_text").notNull().default(""),
+    uploadedBy: text("uploaded_by").references(() => user.id, { onDelete: "set null" }),
+    ...timestamps,
+  },
+  (t) => [index("asset_kind_idx").on(t.kind, t.status)],
+);

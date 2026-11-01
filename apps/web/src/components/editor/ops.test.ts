@@ -79,8 +79,17 @@ describe("editor ops", () => {
     expect(ops.textToBlocks(text)[1]).toMatchObject({ kind: "list" });
   });
 
-  it("never offers media components before the media library exists", () => {
-    expect(ops.allowedToAdd("text", "body")).not.toContain("audio");
-    expect(ops.allowedToAdd("question", "intro")).not.toContain("image");
+  it("creates media templates from a chosen file and keeps unsupported types out", () => {
+    let c = base();
+    const video = { id: "a-vid", kind: "video" as const, altText: "" };
+    const image = { id: "a-img", kind: "image" as const, altText: "תיאור" };
+    c = ops.addScreen(c, "u-1", "video", video).course;
+    c = ops.addScreen(c, "u-1", "scenario", video).course;
+    c = ops.addScreen(c, "u-1", "media_text", image).course;
+    c = ops.addScreen(c, "u-1", "cinematic_intro", image).course;
+    expect(validateCourse(c).issues.filter((i) => i.severity === "error")).toEqual([]);
+    expect(() => ops.addScreen(c, "u-1", "video")).toThrow();
+    expect(ops.allowedToAdd("text", "body")).toContain("audio");
+    expect(ops.allowedToAdd("hotspot", "task")).not.toContain("hotspotImage");
   });
 });

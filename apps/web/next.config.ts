@@ -2,15 +2,19 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
 
+// Media storage origins (Cloudflare R2): public files + direct signed uploads from the browser.
+const mediaPublic = process.env.R2_PUBLIC_BASE_URL ? new URL(process.env.R2_PUBLIC_BASE_URL).origin : "";
+const mediaUpload = process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : "";
+
 // TODO(security): move script-src to per-request nonces to drop 'unsafe-inline'.
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  `img-src 'self' data: blob: ${mediaPublic}`.trim(),
   "font-src 'self'",
-  "connect-src 'self'",
-  "media-src 'self' blob:",
+  `connect-src 'self' ${mediaUpload}`.trim(),
+  `media-src 'self' blob: ${mediaPublic}`.trim(),
   "frame-src 'none'", // imported-content origins are added in the Import Center phase
   "frame-ancestors 'none'",
   "object-src 'none'",

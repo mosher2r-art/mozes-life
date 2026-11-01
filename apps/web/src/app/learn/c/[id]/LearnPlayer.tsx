@@ -7,8 +7,6 @@ import type { PlayerEvent, PlayerState } from "@mozes/player-core";
 import { CoursePlayer, type MediaResolver } from "@mozes/player-react";
 import { DEMO_MEDIA } from "@/content/demo-course";
 
-// Media library arrives with the editor; until then only the demo assets exist.
-const resolveMedia: MediaResolver = (ref) => DEMO_MEDIA[ref.assetId] ?? null;
 
 type Save = "idle" | "saving" | "saved" | "offline" | "error";
 const SAVE_TEXT: Record<Save, string> = {
@@ -19,7 +17,19 @@ const SAVE_TEXT: Record<Save, string> = {
   error: "השמירה נכשלה",
 };
 
-export function LearnPlayer({ enrollmentId, course, initialState }: { enrollmentId: string; course: Course; initialState: PlayerState }) {
+export function LearnPlayer({
+  enrollmentId,
+  course,
+  initialState,
+  media,
+}: {
+  enrollmentId: string;
+  course: Course;
+  initialState: PlayerState;
+  media: Record<string, { src: string; mime: string }>;
+}) {
+  // Library files first; the built-in demo assets remain available for the demo course.
+  const resolveMedia: MediaResolver = useCallback((ref) => media[ref.assetId] ?? DEMO_MEDIA[ref.assetId] ?? null, [media]);
   const [save, setSave] = useState<Save>("idle");
   const [resync, setResync] = useState<{ key: number; state: PlayerState }>({ key: 0, state: initialState });
   const queue = useRef<PlayerEvent[]>([]);

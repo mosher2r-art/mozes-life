@@ -3,7 +3,40 @@
 import { useId } from "react";
 import type { Component, Course, FlowTarget, Screen } from "@mozes/content-schema";
 import { flattenScreens } from "@mozes/content-schema";
+import type { AssetView } from "@/components/media/upload";
 import { blocksToText, newId, textToBlocks } from "./ops";
+
+type MediaMap = Record<string, { src: string; mime?: string }>;
+type PickMedia = (kinds: AssetView["kind"][], title: string, onPick: (a: AssetView) => void) => void;
+
+function MediaField({ label, assetId, media, kinds, pickMedia, onChange, onClear, disabled }: {
+  label: string;
+  assetId: string | undefined;
+  media: MediaMap;
+  kinds: AssetView["kind"][];
+  pickMedia: PickMedia;
+  onChange: (a: AssetView) => void;
+  onClear?: () => void;
+  disabled: boolean;
+}) {
+  const m = assetId ? media[assetId] : undefined;
+  return (
+    <div className="ef">
+      <span className="ef-label">{label}</span>
+      <div className="media-field">
+        {m && kinds.includes("image") && !m.mime?.startsWith("video") && !m.mime?.startsWith("text") ? <img src={m.src} alt="" /> : null}
+        {m && m.mime?.startsWith("video") ? <video src={m.src} preload="metadata" muted aria-hidden="true" /> : null}
+        <span className="media-field-name">{assetId ? (m ? "קובץ נבחר" : "הקובץ אינו זמין") : "לא נבחר קובץ"}</span>
+        <button type="button" className="btn btn-quiet btn-sm" disabled={disabled} onClick={() => pickMedia(kinds, label, onChange)}>
+          {assetId ? "החלפה" : "בחירה"}
+        </button>
+        {assetId && onClear && (
+          <button type="button" className="ed-link-danger" disabled={disabled} onClick={onClear}>הסרה</button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 type Patch = (fn: (c: Component) => void, key: string) => void;
 
@@ -100,6 +133,8 @@ export function ComponentForm({
   patch,
   setBranch,
   disabled,
+  media,
+  pickMedia,
 }: {
   c: Component;
   course: Course;
@@ -107,8 +142,67 @@ export function ComponentForm({
   patch: Patch;
   setBranch: (optionId: string, t: FlowTarget | null) => void;
   disabled: boolean;
+  media: MediaMap;
+  pickMedia: PickMedia;
 }) {
   switch (c.type) {
+    case "image":
+      return (
+        <>
+          <MediaField label="תמונה" assetId={c.media.assetId} media={media} kinds={["image"]} pickMedia={pickMedia} disabled={disabled}
+            onChange={(a) => patch((x) => { if (x.type === "image") { x.media = { assetId: a.id }; if (!x.alt) x.alt = a.altText; } }, `${c.id}.media`)} />
+          <label className="ef-check">
+            <input type="checkbox" checked={c.decorative} disabled={disabled} onChange={(e) => patch((x) => x.type === "image" && (x.decorative = e.target.checked), `${c.id}.deco`)} />
+            תמונה דקורטיבית בלבד (בלי מידע חשוב)
+          </label>
+          {!c.decorative && (
+            <Field label="תיאור התמונה (לנגישות)" hint="מה רואים בתמונה, במשפט אחד. קוראי מסך מקריאים אותו.">
+              {(id) => <input id={id} value={c.alt} disabled={disabled} onChange={(e) => patch((x) => x.type === "image" && (x.alt = e.target.value), `${c.id}.alt`)} />}
+            </Field>
+          )}
+          <Field label="כיתוב מתחת לתמונה (לא חובה)">
+            {(id) => <input id={id} value={c.caption ?? ""} disabled={disabled} onChange={(e) => patch((x) => x.type === "image" && (x.caption = e.target.value || undefined), `${c.id}.caption`)} />}
+          </Field>
+        </>
+      );
+    case "video":
+      return (
+        <>
+          <MediaField label="סרטון" assetId={c.media.assetId} media={media} kinds={["video"]} pickMedia={pickMedia} disabled={disabled}
+            onChange={(a) => patch((x) => x.type === "video" && (x.media = { assetId: a.id }), `${c.id}.media`)} />
+          <MediaField label="כתוביות (VTT, מומלץ)" assetId={c.captions?.assetId} media={media} kinds={["captions"]} pickMedia={pickMedia} disabled={disabled}
+            onChange={(a) => patch((x) => x.type === "video" && (x.captions = { assetId: a.id }), `${c.id}.captions`)}
+            onClear={() => patch((x) => { if (x.type === "video") delete x.captions; }, `${c.id}.captions`)} />
+          <MediaField label="תמונת פתיחה (לא חובה)" assetId={c.poster?.assetId} media={media} kinds={["image"]} pickMedia={pickMedia} disabled={disabled}
+            onChange={(a) => patch((x) => x.type === "video" && (x.poster = { assetId: a.id }), `${c.id}.poster`)}
+            onClear={() => patch((x) => { if (x.type === "video") delete x.poster; }, `${c.id}.poster`)} />
+          <div className="ef-row">
+            <Field label="חובה לצפות (%)" hint="0 = אין חובה">
+              {(id) => <input id={id} type="number" min={0} max={100} value={c.requiredWatchPercent} disabled={disabled}
+                onChange={(e) => patch((x) => x.type === "video" && (x.requiredWatchPercent = Math.max(0, Math.min(100, Number(e.target.value) || 0))), `${c.id}.req`)} />}
+            </Field>
+            {screen.template === "scenario" && (
+              <Field label="עצירה והצגת השאלה בשנייה" hint="ריק = בסוף הסרטון">
+                {(id) => <input id={id} type="number" min={0} step={0.5} value={c.pauseAtMs === undefined ? "" : c.pauseAtMs / 1000} disabled={disabled}
+                  onChange={(e) => patch((x) => { if (x.type === "video") x.pauseAtMs = e.target.value === "" ? undefined : Math.max(0, Math.round(Number(e.target.value) * 1000)); }, `${c.id}.pause`)} />}
+              </Field>
+            )}
+          </div>
+          <Field label="תמליל (לנגישות)">
+            {(id) => <textarea id={id} rows={3} value={c.transcript ?? ""} disabled={disabled} onChange={(e) => patch((x) => x.type === "video" && (x.transcript = e.target.value || undefined), `${c.id}.transcript`)} />}
+          </Field>
+        </>
+      );
+    case "audio":
+      return (
+        <>
+          <MediaField label="קובץ שמע" assetId={c.media.assetId} media={media} kinds={["audio"]} pickMedia={pickMedia} disabled={disabled}
+            onChange={(a) => patch((x) => x.type === "audio" && (x.media = { assetId: a.id }), `${c.id}.media`)} />
+          <Field label="תמליל (חובה, לנגישות)">
+            {(id) => <textarea id={id} rows={4} value={c.transcript} disabled={disabled} onChange={(e) => patch((x) => x.type === "audio" && (x.transcript = e.target.value), `${c.id}.transcript`)} />}
+          </Field>
+        </>
+      );
     case "heading":
       return (
         <div className="ef-row">

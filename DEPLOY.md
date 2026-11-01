@@ -34,6 +34,37 @@
 - בכניסה הראשונה המערכת יוצרת אוטומטית את המשתמש המנהל ואת קורס ההדגמה.
 - מומלץ למחוק אחר כך מ-Render את `BOOTSTRAP_ADMIN_PASSWORD` (Environment ← מחיקה). המשתמש כבר קיים, והמשתנה לא נדרש יותר.
 
+## אחסון קבצים (סרטונים ותמונות) — Cloudflare R2
+
+בלי השלב הזה ספריית המדיה מציגה "אחסון הקבצים עדיין לא הוגדר". Render מוחק קבצים בכל הפעלה, ולכן הקבצים נשמרים ב-R2.
+חינם עד 10GB, ובלי תשלום על צפייה. **ייתכן ש-Cloudflare יבקש להוסיף אמצעי תשלום כדי להפעיל את R2, גם בשימוש בחינם.**
+
+1. ב-https://dash.cloudflare.com פותחים **R2 Object Storage**, ואם צריך לוחצים **Enable** / **Purchase R2** (התוכנית החינמית).
+2. **Create bucket** ← שם: `mozes-life-media` ← **Create**.
+3. בתוך ה-bucket: **Settings** ← **Public Development URL** (או r2.dev subdomain) ← **Enable**. מעתיקים את הכתובת שמתחילה ב-`https://pub-`.
+4. באותו מסך: **CORS policy** ← **Add CORS policy** ← מדביקים (עם הכתובת של האתר שלך ב-Render):
+   ```json
+   [{"AllowedOrigins":["https://mozes-life-xxxx.onrender.com"],"AllowedMethods":["PUT","GET","HEAD"],"AllowedHeaders":["content-type"],"MaxAgeSeconds":3600}]
+   ```
+5. חוזרים למסך הראשי של R2 ← **Manage API tokens** ← **Create API token**:
+   - **Permissions:** Object Read & Write
+   - **Specify bucket:** `mozes-life-media`
+   - **Create** ← מעתיקים את **Access Key ID** ואת **Secret Access Key** (מוצג פעם אחת בלבד).
+   - במסך הראשי של R2 מופיע גם **Account ID** — מעתיקים.
+6. ב-Render ← השירות ← **Environment** ← **Edit** ← מוסיפים:
+
+| KEY | VALUE |
+|---|---|
+| `R2_ACCOUNT_ID` | ה-Account ID |
+| `R2_ACCESS_KEY_ID` | ה-Access Key ID |
+| `R2_SECRET_ACCESS_KEY` | ה-Secret Access Key |
+| `R2_BUCKET` | `mozes-life-media` |
+| `R2_PUBLIC_BASE_URL` | הכתובת `https://pub-...r2.dev` |
+
+7. **Save, rebuild, and deploy** (חשוב לבחור rebuild — הגדרות האבטחה של האתר נבנות לפי הכתובות האלה).
+
+> כתובת `r2.dev` מתאימה לבדיקות. לפני השקה מחברים ל-bucket דומיין משלכם (Custom Domain) ומעדכנים את `R2_PUBLIC_BASE_URL`.
+
 ## עדכונים
 כל שינוי שנכנס לגרסה הראשית ב-GitHub מתעדכן באתר אוטומטית.
 

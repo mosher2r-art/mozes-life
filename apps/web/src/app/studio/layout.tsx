@@ -13,6 +13,7 @@ export const metadata: Metadata = { title: { default: "Studio", template: "%s ·
 const NAV = [
   { href: "/studio", label: "לוח בקרה", icon: "dashboard" },
   { href: "/studio/courses", label: "קורסים", icon: "book" },
+  { href: "/studio/media", label: "ספריית מדיה", icon: "media" },
   { href: "/studio/preview/demo", label: "הדגמת נגן", icon: "play" },
 ] as const;
 

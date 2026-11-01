@@ -25,6 +25,7 @@
     "@mozes/player-core": "workspace:*",
     "@mozes/player-react": "workspace:*",
     "@mozes/validator": "workspace:*",
+    "aws4fetch": "1.0.20",
     "better-auth": "1.7.10",
     "drizzle-orm": "0.45.4",
     "next": "16.4.2",

@@ -16,10 +16,33 @@ import {
 export const newId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 const clone = <T>(v: T): T => structuredClone(v);
 
-/** Templates that can be created before the media library exists. */
+/** Templates that need no media. */
 export const AUTHORABLE_TEMPLATES: TemplateId[] = ["text", "question", "sequence", "summary"];
-/** Component types that need uploaded media (added with the media library). */
+/** Templates created from a chosen media file, and which file kinds each accepts. */
+export const MEDIA_TEMPLATES: Partial<Record<TemplateId, ("image" | "video")[]>> = {
+  video: ["video"],
+  media_text: ["image", "video"],
+  scenario: ["video", "image"],
+  cinematic_intro: ["image", "video"],
+};
+/** Component types that need an uploaded file. */
 export const MEDIA_TYPES: ComponentType[] = ["image", "video", "audio", "hotspotImage"];
+/** Not yet authorable in the editor (needs the hotspot drawing tool). */
+export const UNSUPPORTED_TYPES: ComponentType[] = ["hotspotImage"];
+
+export interface PickedMedia {
+  id: string;
+  kind: "image" | "video" | "audio" | "captions";
+  altText: string;
+}
+
+export function mediaComponent(m: PickedMedia, opts: { cover?: boolean } = {}): Component {
+  const id = newId("c");
+  if (m.kind === "image") return { id, type: "image", media: { assetId: m.id }, alt: m.altText, decorative: !!opts.cover };
+  if (m.kind === "video") return { id, type: "video", media: { assetId: m.id }, requiredWatchPercent: 0 };
+  if (m.kind === "audio") return { id, type: "audio", media: { assetId: m.id }, transcript: "תמליל ההקלטה" };
+  throw new Error("captions are attached to a video, not placed on a screen");
+}
 
 export const COMPONENT_LABEL: Record<ComponentType, string> = {
   heading: "כותרת",
@@ -115,8 +138,13 @@ export function defaultComponent(type: ComponentType): Component {
   }
 }
 
-export function defaultScreen(template: TemplateId): Screen {
+export function defaultScreen(template: TemplateId, media?: PickedMedia): Screen {
   const base = { id: newId("s"), template, required: true, flow: { default: { kind: "next" } as FlowTarget, rules: [] }, medical: { relevant: false } };
+  const heading = (text: string, level: 1 | 2 | 3 = 1): Component => ({ id: newId("c"), type: "heading", text, level });
+  const need = () => {
+    if (!media) throw new Error(`${template} needs a media file`);
+    return media;
+  };
   switch (template) {
     case "text":
       return { ...base, title: "מסך הסבר", slots: { body: [{ ...defaultComponent("heading"), level: 1 } as Component, defaultComponent("richText")] } };
@@ -129,10 +157,24 @@ export function defaultScreen(template: TemplateId): Screen {
         ...base,
         title: "סיכום",
         flow: { default: { kind: "end" }, rules: [] },
-        slots: { body: [{ id: newId("c"), type: "heading", text: "סיימתם את הקורס", level: 1 }, { id: newId("c"), type: "richText", body: textToBlocks("כל הכבוד!") }] },
+        slots: { body: [heading("סיימתם את הקורס"), { id: newId("c"), type: "richText", body: textToBlocks("כל הכבוד!") }] },
       };
+    case "video":
+      return { ...base, title: "סרטון", slots: { video: [mediaComponent(need())], body: [heading("כותרת הסרטון", 2)] } };
+    case "media_text":
+      return { ...base, title: "מדיה וטקסט", slots: { media: [mediaComponent(need())], body: [heading("כותרת", 2), defaultComponent("richText")] } };
+    case "cinematic_intro":
+      return { ...base, title: "פתיחה", slots: { background: [mediaComponent(need(), { cover: true })], title: [heading("שם הקורס")], body: [defaultComponent("richText")] } };
+    case "scenario": {
+      const m = need();
+      const media = mediaComponent(m);
+      if (media.type === "video") media.pauseAtMs = 5000;
+      const q = defaultComponent("choiceQuestion");
+      if (q.type === "choiceQuestion") q.prompt = "מה עושים עכשיו?";
+      return { ...base, title: "תרחיש", slots: { media: [media], intro: [], decision: [q] } };
+    }
     default:
-      throw new Error(`${template} requires the media library`);
+      throw new Error(`${template} is not authorable yet`);
   }
 }
 
@@ -190,10 +232,10 @@ export const moveUnit = (course: Course, unitId: string, delta: number): Course 
 
 /* ───────────── Screens ───────────── */
 
-export function addScreen(course: Course, unitId: string, template: TemplateId): { course: Course; screenId: string } {
+export function addScreen(course: Course, unitId: string, template: TemplateId, media?: PickedMedia): { course: Course; screenId: string } {
   const c = clone(course);
   const unit = c.units.find((u) => u.id === unitId);
-  const screen = defaultScreen(template);
+  const screen = defaultScreen(template, media);
   unit?.screens.push(screen);
   return { course: c, screenId: screen.id };
 }
@@ -264,11 +306,11 @@ export const updateScreen = (course: Course, screenId: string, fn: (s: Screen) =
 
 export function allowedToAdd(template: TemplateId, slotId: string): ComponentType[] {
   const slot = TEMPLATES[template].slots.find((s) => s.id === slotId);
-  return (slot?.accepts ?? []).filter((t) => !MEDIA_TYPES.includes(t));
+  return (slot?.accepts ?? []).filter((t) => !UNSUPPORTED_TYPES.includes(t));
 }
 
-export function addComponent(course: Course, screenId: string, slotId: string, type: ComponentType): { course: Course; componentId: string } {
-  const comp = defaultComponent(type);
+export function addComponent(course: Course, screenId: string, slotId: string, type: ComponentType, media?: PickedMedia): { course: Course; componentId: string } {
+  const comp = MEDIA_TYPES.includes(type) ? mediaComponent(media ?? (() => { throw new Error("media required"); })()) : defaultComponent(type);
   const c = mapScreen(course, screenId, (s) => {
     s.slots[slotId] = [...(s.slots[slotId] ?? []), comp];
   });

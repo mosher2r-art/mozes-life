@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { can } from "@mozes/authz";
 import { Editor } from "@/components/editor/Editor";
 import { Forbidden } from "@/components/Forbidden";
+import { collectAssetIds } from "@/lib/collect-assets";
 import { contentHash } from "@/lib/content-hash";
 import { getCurrentUser } from "@/server/actor";
+import { resolveAssets } from "@/server/media";
 import { getEditorData } from "@/server/studio-courses";
 
 export const metadata: Metadata = { title: "עורך הלומדות" };
@@ -17,6 +19,7 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) notFound();
   const data = await getEditorData(id);
   if (!data) notFound();
+  const media = await resolveAssets(collectAssetIds(data.content));
   return (
     <Editor
       courseId={data.id}
@@ -27,6 +30,8 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
       unpublishedChanges={data.publishedHash !== null && contentHash(data.content) !== data.publishedHash}
       canEdit={can(user?.actor, "course.edit")}
       canPublish={can(user?.actor, "course.publish")}
+      canManageMedia={can(user?.actor, "media.manage")}
+      media={media}
     />
   );
 }

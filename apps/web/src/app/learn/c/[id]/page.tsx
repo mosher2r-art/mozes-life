@@ -27,7 +27,7 @@ export default async function CoursePage({ params }: { params: Promise<{ id: str
         </Link>
         {data.isDemo && <span className="course-demo-flag">קורס הדגמה · לא רפואי</span>}
       </nav>
-      <LearnPlayer enrollmentId={data.enrollmentId} course={data.content} initialState={data.state} />
+      <LearnPlayer enrollmentId={data.enrollmentId} course={data.content} initialState={data.state} media={data.media} />
     </div>
   );
 }

@@ -26,6 +26,8 @@ export default defineConfig({
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
       NODE_ENV: "production",
       AUTH_SIGNIN_RATE_LIMIT_PER_MIN: "200", // many logins from one IP during the suite
+      MEDIA_DRIVER: "local",
+      MEDIA_LOCAL_DIR: "test-results/.media",
     },
   },
 });

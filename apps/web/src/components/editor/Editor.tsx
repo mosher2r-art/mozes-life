@@ -7,11 +7,11 @@ import { type Component, Course, type ComponentType, type FlowTarget, TEMPLATES,
 import { start } from "@mozes/player-core";
 import { CoursePlayer, type MediaResolver } from "@mozes/player-react";
 import { TECHNICAL_ONLY_NOTICE, validateCourse } from "@mozes/validator";
+import { MediaLibrary } from "@/components/media/MediaLibrary";
+import type { AssetView } from "@/components/media/upload";
 import { DEMO_MEDIA } from "@/content/demo-course";
 import { ComponentForm, Field, TargetSelect } from "./ComponentForm";
 import * as ops from "./ops";
-
-const resolveMedia: MediaResolver = (ref) => DEMO_MEDIA[ref.assetId] ?? null;
 
 type Save = "saved" | "dirty" | "saving" | "offline" | "conflict" | "invalid";
 const SAVE_TEXT: Record<Save, string> = {
@@ -32,7 +32,12 @@ export interface EditorProps {
   unpublishedChanges: boolean;
   canEdit: boolean;
   canPublish: boolean;
+  canManageMedia: boolean;
+  /** assetId → URL for files the course already uses. */
+  media: Record<string, { src: string; mime?: string }>;
 }
+
+type MediaKind = AssetView["kind"];
 
 export function Editor(props: EditorProps) {
   const { courseId, canEdit, canPublish } = props;
@@ -49,6 +54,20 @@ export function Editor(props: EditorProps) {
   const [panel, setPanel] = useState<"screen" | "issues">("screen");
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+
+  /* ───────── media ───────── */
+  const [mediaMap, setMediaMap] = useState(props.media);
+  const resolveMedia: MediaResolver = useCallback((ref) => mediaMap[ref.assetId] ?? DEMO_MEDIA[ref.assetId] ?? null, [mediaMap]);
+  const [picker, setPicker] = useState<{ kinds: MediaKind[]; title: string; onPick: (a: AssetView) => void } | null>(null);
+  const pickMedia = useCallback((kinds: MediaKind[], title: string, onPick: (a: AssetView) => void) => {
+    setPicker({ kinds, title, onPick });
+  }, []);
+  const picked = (a: AssetView) => {
+    setMediaMap((m) => ({ ...m, [a.id]: { src: a.url, mime: a.mime } }));
+    const p = picker;
+    setPicker(null);
+    p?.onPick(a);
+  };
 
   /* ───────── history ───────── */
   const commit = useCallback((next: Course, key?: string) => {
@@ -308,7 +327,24 @@ export function Editor(props: EditorProps) {
                       <span>{TEMPLATES[t].description}</span>
                     </button>
                   ))}
-                  <p className="ef-hint">מסכים עם תמונות וסרטונים יתווספו עם ספריית המדיה.</p>
+                  {(Object.keys(ops.MEDIA_TEMPLATES) as (keyof typeof ops.MEDIA_TEMPLATES)[]).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() =>
+                        pickMedia(ops.MEDIA_TEMPLATES[t]!, `בחירת קובץ ל${TEMPLATES[t].label}`, (a) => {
+                          const r = ops.addScreen(docRef.current, u.id, t, a);
+                          commit(r.course);
+                          setScreenId(r.screenId);
+                          setPickerFor(null);
+                          setPanel("screen");
+                        })
+                      }
+                    >
+                      <strong>{TEMPLATES[t].label}</strong>
+                      <span>{TEMPLATES[t].description}</span>
+                    </button>
+                  ))}
                   <button type="button" className="ed-link" onClick={() => setPickerFor(null)}>ביטול</button>
                 </div>
               ) : (
@@ -414,6 +450,8 @@ export function Editor(props: EditorProps) {
                                 disabled={ro}
                                 patch={(fn, key) => commit(ops.updateComponent(doc, selected.id, c.id, fn), key)}
                                 setBranch={(optionId: string, t: FlowTarget | null) => commit(ops.setChoiceBranch(doc, selected.id, c.id, optionId, t))}
+                                media={mediaMap}
+                                pickMedia={pickMedia}
                               />
                             </div>
                           )}
@@ -421,7 +459,22 @@ export function Editor(props: EditorProps) {
                       );
                     })}
                     {!ro && items.length < slot.max && addable.length > 0 && (
-                      <AddComponent types={addable} onAdd={(t) => { const r = ops.addComponent(doc, selected.id, slot.id, t); commit(r.course); setOpenComp(r.componentId); }} />
+                      <AddComponent
+                        types={addable}
+                        onAdd={(t) => {
+                          if (ops.MEDIA_TYPES.includes(t)) {
+                            pickMedia([t as MediaKind], `בחירת ${ops.COMPONENT_LABEL[t]}`, (a) => {
+                              const r = ops.addComponent(docRef.current, selected.id, slot.id, t, a);
+                              commit(r.course);
+                              setOpenComp(r.componentId);
+                            });
+                          } else {
+                            const r = ops.addComponent(doc, selected.id, slot.id, t);
+                            commit(r.course);
+                            setOpenComp(r.componentId);
+                          }
+                        }}
+                      />
                     )}
                   </section>
                 );
@@ -432,6 +485,19 @@ export function Editor(props: EditorProps) {
           )}
         </aside>
       </div>
+
+      {picker && (
+        <div className="ed-modal-backdrop" role="presentation" onClick={(e) => e.target === e.currentTarget && setPicker(null)}>
+          <div className="ed-modal ed-modal-wide" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+            <h2 id="picker-title">{picker.title}</h2>
+            <p className="muted">בחרו קובץ מהספרייה, או העלו קובץ חדש. קובץ שמועלה כאן נבחר אוטומטית.</p>
+            <MediaLibrary mode="pick" kinds={picker.kinds} onPick={picked} canManage={props.canManageMedia} />
+            <div className="ed-modal-actions">
+              <button type="button" className="btn btn-quiet" onClick={() => setPicker(null)}>ביטול</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {publishOpen && (
         <div className="ed-modal-backdrop" role="presentation" onClick={(e) => e.target === e.currentTarget && setPublishOpen(false)}>
