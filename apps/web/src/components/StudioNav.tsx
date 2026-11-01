@@ -6,12 +6,13 @@ import { usePathname } from "next/navigation";
 export interface NavItem {
   href: string;
   label: string;
-  icon: "dashboard" | "play";
+  icon: "dashboard" | "play" | "book";
 }
 
 const ICONS: Record<NavItem["icon"], React.ReactNode> = {
   dashboard: <path d="M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z" />,
   play: <path d="M7 5v14l11-7z" />,
+  book: <path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19V5M8 7h7" />,
 };
 
 export function StudioNav({ items }: { items: readonly NavItem[] }) {

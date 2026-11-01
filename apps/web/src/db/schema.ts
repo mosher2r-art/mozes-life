@@ -213,3 +213,14 @@ export const enrollment = pgTable(
   },
   (t) => [uniqueIndex("enrollment_user_course_idx").on(t.userId, t.courseId), index("enrollment_user_idx").on(t.userId)],
 );
+
+/** One working draft per course. Optimistic concurrency via `revision`. */
+export const courseDraft = pgTable("course_draft", {
+  courseId: text("course_id")
+    .primaryKey()
+    .references(() => course.id, { onDelete: "cascade" }),
+  content: jsonb("content").notNull(),
+  revision: integer("revision").notNull().default(1),
+  updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

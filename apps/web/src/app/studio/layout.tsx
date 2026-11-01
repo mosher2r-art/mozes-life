@@ -12,6 +12,7 @@ export const metadata: Metadata = { title: { default: "Studio", template: "%s ·
 // Navigation lists ONLY areas that are implemented. New areas are added as they ship.
 const NAV = [
   { href: "/studio", label: "לוח בקרה", icon: "dashboard" },
+  { href: "/studio/courses", label: "קורסים", icon: "book" },
   { href: "/studio/preview/demo", label: "הדגמת נגן", icon: "play" },
 ] as const;
 

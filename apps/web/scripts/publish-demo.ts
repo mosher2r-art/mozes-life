@@ -3,7 +3,7 @@
  *   pnpm demo:publish --enroll learner@example.com --enroll other@example.com
  * Idempotent: re-running publishes a new version only when the content changed.
  */
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { parseArgs } from "node:util";
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -11,6 +11,7 @@ import { Pool } from "pg";
 import { validateCourse } from "@mozes/validator";
 import { demoCourse } from "../src/content/demo-course";
 import * as schema from "../src/db/schema";
+import { contentHash } from "../src/lib/content-hash";
 
 const { values } = parseArgs({ options: { enroll: { type: "string", multiple: true } } });
 const url = process.env.DATABASE_URL;
@@ -22,7 +23,7 @@ if (!result.ok || !result.course) {
   throw new Error("Demo course failed validation; not publishing");
 }
 const content = result.course;
-const hash = createHash("sha256").update(JSON.stringify(content)).digest("hex");
+const hash = contentHash(content);
 
 const pool = new Pool({ connectionString: url });
 const db = drizzle(pool, { schema });
