@@ -186,37 +186,13 @@ export function OrgMemberForm({ orgId }: { orgId: string }) {
       setMsg(r.ok ? { tone: "ok", text: "המשתמש נוסף לארגון." } : { tone: "bad", text: String(r.data.message ?? "ההוספה נכשלה.") });
       if (r.ok) { setEmail(""); router.refresh(); }
     }}>
-      <h2 className="form-title">הוספת חבר לארגון</h2>
+      <h2 className="form-title">הוספת חבר יחיד או מנהל ארגון</h2>
       <div className="field"><label htmlFor="om-email">אימייל של משתמש קיים</label><input id="om-email" type="email" dir="ltr" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
       <div className="field">
         <label htmlFor="om-role">תפקיד בארגון</label>
         <select id="om-role" value={role} onChange={(e) => setRole(e.target.value)}><option value="learner">לומד/ת</option><option value="org_admin">מנהל/ת ארגון</option></select>
       </div>
-      <button className="btn btn-primary" type="submit">הוספה</button>
-      <div className="form-wide"><Msg m={msg} /></div>
-    </form>
-  );
-}
-
-export function OrgEnrollForm({ orgId, courses }: { orgId: string; courses: { id: string; title: string }[] }) {
-  const router = useRouter();
-  const [courseId, setCourseId] = useState(courses[0]?.id ?? "");
-  const [msg, setMsg] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
-  if (!courses.length) return <p className="muted">אין עדיין קורסים מפורסמים לשיוך.</p>;
-  return (
-    <form className="block form-grid" onSubmit={async (e) => {
-      e.preventDefault();
-      const r = await call(`/api/studio/orgs/${orgId}/enroll`, "POST", { courseId });
-      setMsg(r.ok ? { tone: "ok", text: `${Number(r.data.added)} חברי ארגון שויכו לקורס.` } : { tone: "bad", text: String(r.data.message ?? "השיוך נכשל.") });
-      router.refresh();
-    }}>
-      <h2 className="form-title">שיוך כל הארגון לקורס</h2>
-      <div className="field">
-        <label htmlFor="oe-course">קורס</label>
-        <select id="oe-course" value={courseId} onChange={(e) => setCourseId(e.target.value)}>{courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}</select>
-      </div>
-      <button className="btn btn-primary" type="submit">שיוך</button>
-      <p className="muted form-wide">כל חברי הארגון הנוכחיים ישויכו. מי שכבר משויך לא יושפע.</p>
+      <button className="btn btn-primary" type="submit">הוספת חבר</button>
       <div className="form-wide"><Msg m={msg} /></div>
     </form>
   );

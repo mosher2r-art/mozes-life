@@ -1,6 +1,6 @@
 import "server-only";
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { Course, type CourseInput, flattenScreens } from "@mozes/content-schema";
 import { validateCourse } from "@mozes/validator";
 import { db } from "@/db";
@@ -203,20 +203,6 @@ export async function listCourseLearners(courseId: string) {
     .innerJoin(user, eq(user.id, enrollment.userId))
     .where(eq(enrollment.courseId, courseId))
     .orderBy(user.name);
-}
-
-export type EnrollResult = { ok: true; created: boolean } | { ok: false; reason: "no_user" | "not_found" };
-
-export async function enrollByEmail(courseId: string, actorId: string, email: string): Promise<EnrollResult> {
-  const [c] = await db.select({ id: course.id }).from(course).where(eq(course.id, courseId));
-  if (!c) return { ok: false, reason: "not_found" };
-  const [u] = await db.select({ id: user.id }).from(user).where(eq(user.email, email.trim().toLowerCase()));
-  if (!u) return { ok: false, reason: "no_user" };
-  const [existing] = await db.select({ n: count() }).from(enrollment).where(and(eq(enrollment.userId, u.id), eq(enrollment.courseId, courseId)));
-  if (existing && existing.n > 0) return { ok: true, created: false };
-  await db.insert(enrollment).values({ id: randomUUID(), userId: u.id, courseId });
-  await db.insert(auditLog).values({ actorId, action: "enrollment.create", entity: "course", entityId: courseId, details: { email } });
-  return { ok: true, created: true };
 }
 
 /** Imported courseware: the published version points at an immutable, verified package. */

@@ -75,6 +75,7 @@ try {
         .where(and(eq(schema.enrollment.userId, u.id), eq(schema.enrollment.courseId, COURSE_ID)));
       if (!existing.length) {
         await tx.insert(schema.enrollment).values({ id: randomUUID(), userId: u.id, courseId: COURSE_ID });
+        await tx.insert(schema.courseAccess).values({ id: randomUUID(), courseId: COURSE_ID, userId: u.id, validFrom: new Date().toISOString().slice(0, 10), note: "קורס הדגמה" });
         console.log(`Enrolled ${email}`);
       }
     }

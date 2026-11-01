@@ -3,11 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { can, ROLE_LABELS_HE } from "@mozes/authz";
+import { GrantForm, GrantTable } from "@/components/admin/access";
 import { UserActions } from "@/components/admin/forms";
 import { Forbidden } from "@/components/Forbidden";
 import { db } from "@/db";
 import { course, enrollment } from "@/db/schema";
 import { getCurrentUser } from "@/server/actor";
+import { grantsForUser, publishedCourseOptions } from "@/server/access";
 import { getUser } from "@/server/admin-users";
 
 export const metadata: Metadata = { title: "פרטי משתמש" };
@@ -21,6 +23,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) notFound();
   const u = await getUser(id);
   if (!u) notFound();
+  const [options, grants] = await Promise.all([publishedCourseOptions(), grantsForUser(id)]);
   const courses = await db
     .select({ title: course.title, status: enrollment.status, progress: enrollment.progressPercent, score: enrollment.scorePercent })
     .from(enrollment)
@@ -45,6 +48,12 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
         {courses.length ? (
           <ul className="plain-list">{courses.map((c, i) => <li key={i}>{c.title} · {STATUS[c.status]} · <span className="num">{c.progress}%</span>{c.score !== null ? ` · ציון ${c.score}` : ""}</li>)}</ul>
         ) : <p className="muted">לא משויך לקורסים.</p>}
+      </section>
+      <section className="stack-sm" aria-labelledby="user-access">
+        <h2 id="user-access" className="section-title">גישה אישית לקורסים</h2>
+        <p className="muted">בנוסף לגישה שהמשתמש מקבל דרך הארגונים שלו.</p>
+        <GrantTable grants={grants} />
+        <GrantForm courses={options} userId={u.id} title="מתן גישה אישית" />
       </section>
       <UserActions id={u.id} email={u.email} roles={u.roles} disabled={u.disabled} isSelf={u.id === me!.actor.userId} />
     </div>

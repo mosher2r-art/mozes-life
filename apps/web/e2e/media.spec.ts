@@ -60,10 +60,10 @@ test("upload media, build a video screen, publish, and the learner can play it",
   await page.getByRole("dialog").getByRole("button", { name: "פרסום", exact: true }).click();
   await expect(page.getByText(/גרסה 1 פורסמה/)).toBeVisible();
   await page.goto("/studio/courses");
-  await page.getByRole("row", { name: /קורס וידאו E2E/ }).getByRole("link", { name: "לומדים" }).click();
-  await page.getByLabel("שיוך לומד לפי אימייל").fill(USERS.learner.email);
-  await page.getByRole("button", { name: "שיוך לקורס" }).click();
-  await expect(page.getByText("הלומד שויך לקורס.")).toBeVisible();
+  await page.getByRole("row", { name: /קורס וידאו E2E/ }).getByRole("link", { name: "גישה ולומדים" }).click();
+  await page.getByLabel("רשימת אנשים — אחד בכל שורה").fill(USERS.learner.email);
+  await page.getByRole("button", { name: "הוספה", exact: true }).click();
+  await expect(page.getByText(/כבר היו במערכת/)).toBeVisible();
 
   // Learner plays it; anonymous users cannot fetch media
   const ctx = await browser.newContext();

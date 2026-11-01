@@ -1,16 +1,18 @@
 import "server-only";
 import { z } from "zod";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { Course } from "@mozes/content-schema";
 import { EngineError, type PlayerEvent, type PlayerState, reconcile, start, step, summarize } from "@mozes/player-core";
 import { db } from "@/db";
 import { collectAssetIds } from "@/lib/collect-assets";
 import { course, courseVersion, enrollment, user } from "@/db/schema";
+import { accessByCourse, type CourseAccessSummary, ensureEnrollments, hasActiveAccess } from "./access";
 import { launchUrlFor } from "./importer";
 import { resolveAssets } from "./media";
 
 export interface MyCourse {
-  enrollmentId: string;
+  /** null while access is only scheduled (no progress record yet). */
+  enrollmentId: string | null;
   courseId: string;
   title: string;
   summary: string;
@@ -22,11 +24,18 @@ export interface MyCourse {
   scorePercent: number | null;
   lastActivityAt: Date | null;
   completedAt: Date | null;
+  access: CourseAccessSummary;
 }
 
-/** Courses the learner is enrolled in (published courses only). */
+/**
+ * Courses this learner has (or had, or will have) access to. Progress records are created for
+ * every course that is open today; expired and upcoming access is shown but cannot be opened.
+ */
 export async function listMyCourses(userId: string): Promise<MyCourse[]> {
-  return db
+  await ensureEnrollments(userId);
+  const access = await accessByCourse(userId);
+  if (!access.size) return [];
+  const rows = await db
     .select({
       enrollmentId: enrollment.id,
       courseId: course.id,
@@ -45,6 +54,20 @@ export async function listMyCourses(userId: string): Promise<MyCourse[]> {
     .innerJoin(course, eq(course.id, enrollment.courseId))
     .where(and(eq(enrollment.userId, userId), eq(course.status, "published")))
     .orderBy(desc(sql`coalesce(${enrollment.lastActivityAt}, ${enrollment.createdAt})`));
+  const list: MyCourse[] = rows.filter((r) => access.has(r.courseId)).map((r) => ({ ...r, access: access.get(r.courseId)! }));
+  const enrolled = new Set(list.map((c) => c.courseId));
+  const upcoming = [...access.entries()].filter(([id, a]) => !enrolled.has(id) && a.state === "scheduled").map(([id]) => id);
+  if (upcoming.length) {
+    const extra = await db.select().from(course).where(and(inArray(course.id, upcoming), eq(course.status, "published")));
+    for (const c of extra) {
+      list.push({
+        enrollmentId: null, courseId: c.id, title: c.title, summary: c.summary, coverUrl: c.coverUrl, estimatedMinutes: c.estimatedMinutes, isDemo: c.isDemo,
+        status: "not_started", progressPercent: 0, scorePercent: null, lastActivityAt: null, completedAt: null, access: access.get(c.id)!,
+      });
+    }
+  }
+  const order = { active: 0, scheduled: 1, expired: 2, revoked: 3 } as const;
+  return list.sort((a, b) => order[a.access.state] - order[b.access.state]);
 }
 
 export interface LaunchData {
@@ -68,6 +91,8 @@ async function loadPinned(tx: Tx, userId: string, enrollmentId: string) {
     .where(and(eq(enrollment.id, enrollmentId), eq(enrollment.userId, userId), eq(course.status, "published")))
     .for("update", { of: enrollment });
   if (!row) return null;
+  // Access is checked on every launch and every save — not only when the course list is shown.
+  if (!(await hasActiveAccess(tx, userId, row.c.id))) return null;
 
   let versionId = row.e.courseVersionId;
   if (!versionId) {

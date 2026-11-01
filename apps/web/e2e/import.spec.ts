@@ -77,10 +77,10 @@ test("import a SCORM 1.2 package, preview it in isolation, publish, and record t
   await expect(page.getByText("טיוטה", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "פרסום" }).click();
   await expect(page.getByText(/הקורס פורסם \(גרסה 1\)/)).toBeVisible();
-  await page.getByRole("link", { name: "לומדים" }).click();
-  await page.getByLabel("שיוך לומד לפי אימייל").fill(USERS.learner.email);
-  await page.getByRole("button", { name: "שיוך לקורס" }).click();
-  await expect(page.getByText("הלומד שויך לקורס.")).toBeVisible();
+  await page.getByRole("link", { name: "גישה ולומדים" }).click();
+  await page.getByLabel("רשימת אנשים — אחד בכל שורה").fill(USERS.learner.email);
+  await page.getByRole("button", { name: "הוספה", exact: true }).click();
+  await expect(page.getByText(/כבר היו במערכת/)).toBeVisible();
 
   // Learner: SCORM data reaches the server and the score is recorded
   const ctx = await browser.newContext();

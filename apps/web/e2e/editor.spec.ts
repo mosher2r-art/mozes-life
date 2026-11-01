@@ -61,11 +61,10 @@ test("create, edit with autosave and undo, publish, and assign a learner", async
 
   // Assign a learner
   await page.goto("/studio/courses");
-  await page.getByRole("row", { name: new RegExp(TITLE) }).getByRole("link", { name: "לומדים" }).click();
-  await page.getByLabel("שיוך לומד לפי אימייל").fill(USERS.learner.email);
-  await page.getByRole("button", { name: "שיוך לקורס" }).click();
-  await expect(page.getByText("הלומד שויך לקורס.")).toBeVisible();
-  await expect(page.getByRole("cell", { name: USERS.learner.email })).toBeVisible();
+  await page.getByRole("row", { name: new RegExp(TITLE) }).getByRole("link", { name: "גישה ולומדים" }).click();
+  await page.getByLabel("רשימת אנשים — אחד בכל שורה").fill(USERS.learner.email);
+  await page.getByRole("button", { name: "הוספה", exact: true }).click();
+  await expect(page.getByText(/כבר היו במערכת/)).toBeVisible();
 
   // The learner now sees it
   const ctx = await browser.newContext();

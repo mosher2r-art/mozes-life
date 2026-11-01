@@ -15,6 +15,15 @@ const STATUS: Record<MyCourse["status"], { label: string; tone: string; cta: str
   failed: { label: "לא עבר", tone: "fail", cta: "צפייה חוזרת" },
 };
 
+const fmtDay = (d: string) => new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${d}T12:00:00`));
+
+function AccessNote({ c }: { c: MyCourse }) {
+  const a = c.access;
+  if (a.state === "active") return a.validUntil ? <p className="access-note">גישה עד {fmtDay(a.validUntil)}</p> : null;
+  if (a.state === "scheduled") return <p className="access-note is-wait">הקורס ייפתח ב-{fmtDay(a.validFrom)}</p>;
+  return <p className="access-note is-off">הגישה לקורס הסתיימה{a.validUntil ? ` ב-${fmtDay(a.validUntil)}` : ""}. לחידוש פנו לארגון או ל-MOZES LIFE.</p>;
+}
+
 function Progress({ value, label }: { value: number; label: string }) {
   return (
     <div className="course-progress">
@@ -40,8 +49,10 @@ export default async function MyCourses() {
   if (user) await ensureCertificates(user.actor.userId);
   const [courses, certs] = user ? await Promise.all([listMyCourses(user.actor.userId), listMyCertificates(user.actor.userId)]) : [[], []];
   const firstName = user?.name.trim().split(/\s+/)[0] ?? "";
-  const current = courses.find((c) => c.status === "in_progress");
+  const open = (c: MyCourse) => c.access.state === "active" && c.enrollmentId;
+  const current = courses.find((c) => c.status === "in_progress" && open(c));
   const done = courses.filter((c) => ["completed", "passed"].includes(c.status));
+  const active = courses.filter((c) => c.access.state === "active");
   const certificates = certs.length;
 
   return (
@@ -59,6 +70,7 @@ export default async function MyCourses() {
             <p className="kicker kicker-green">ממשיכים מאיפה שעצרת</p>
             <h2 id="resume-title" className="resume-title">{current.title}</h2>
             <Progress value={current.progressPercent} label={`התקדמות בקורס ${current.title}`} />
+            <AccessNote c={current} />
             <Link className="btn btn-primary resume-cta" href={`/learn/c/${current.enrollmentId}`}>
               המשך ללמוד
             </Link>
@@ -67,7 +79,7 @@ export default async function MyCourses() {
       )}
 
       <section aria-label="סיכום" className="academy-stats">
-        <div><span className="num">{courses.length}</span><span>קורסים</span></div>
+        <div><span className="num">{active.length}</span><span>קורסים פעילים</span></div>
         <div><span className="num">{courses.filter((c) => c.status === "in_progress").length}</span><span>בתהליך</span></div>
         <div><span className="num">{done.length}</span><span>הושלמו</span></div>
         <div><span className="num">{certificates}</span><span>תעודות</span></div>
@@ -88,7 +100,7 @@ export default async function MyCourses() {
             {courses.map((c) => {
               const st = STATUS[c.status];
               return (
-                <li key={c.enrollmentId} className="course-card">
+                <li key={c.courseId} className={`course-card${open(c) ? "" : " is-locked"}`}>
                   <Cover c={c} />
                   <div className="course-card-body">
                     <div className="course-meta">
@@ -99,9 +111,12 @@ export default async function MyCourses() {
                     <p className="course-summary">{c.summary}</p>
                     {c.status !== "not_started" && <Progress value={c.progressPercent} label={`התקדמות בקורס ${c.title}`} />}
                     {c.scorePercent !== null && c.status !== "in_progress" && <p className="muted">ציון: <span className="num">{c.scorePercent}%</span></p>}
-                    <Link className={`btn ${c.status === "in_progress" || c.status === "not_started" ? "btn-primary" : "btn-quiet"}`} href={`/learn/c/${c.enrollmentId}`}>
-                      {st.cta}
-                    </Link>
+                    <AccessNote c={c} />
+                    {open(c) && (
+                      <Link className={`btn ${c.status === "in_progress" || c.status === "not_started" ? "btn-primary" : "btn-quiet"}`} href={`/learn/c/${c.enrollmentId}`}>
+                        {st.cta}
+                      </Link>
+                    )}
                   </div>
                 </li>
               );

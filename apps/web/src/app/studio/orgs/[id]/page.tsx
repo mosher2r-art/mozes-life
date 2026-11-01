@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { can, ROLE_LABELS_HE } from "@mozes/authz";
-import { OrgEnrollForm, OrgMemberForm, RemoveMemberButton } from "@/components/admin/forms";
+import { GrantForm, GrantTable, PeopleImport } from "@/components/admin/access";
+import { OrgMemberForm, RemoveMemberButton } from "@/components/admin/forms";
 import { Forbidden } from "@/components/Forbidden";
 import { getCurrentUser } from "@/server/actor";
-import { getOrg, ORG_TYPE_LABEL, publishedCourses } from "@/server/admin-users";
+import { grantsForOrg, publishedCourseOptions } from "@/server/access";
+import { getOrg, ORG_TYPE_LABEL } from "@/server/admin-users";
 
 export const metadata: Metadata = { title: "ארגון" };
 export const dynamic = "force-dynamic";
@@ -17,7 +19,7 @@ export default async function OrgPage({ params }: { params: Promise<{ id: string
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) notFound();
   const data = await getOrg(id);
   if (!data) notFound();
-  const courses = await publishedCourses();
+  const [courses, grants] = await Promise.all([publishedCourseOptions(), grantsForOrg(id)]);
   return (
     <div className="page">
       <header className="page-head">
@@ -25,10 +27,19 @@ export default async function OrgPage({ params }: { params: Promise<{ id: string
         <p className="kicker">{ORG_TYPE_LABEL[data.org.type]}</p>
         <h1 className="page-title">{data.org.name}</h1>
       </header>
-      <div className="split-even">
-        <OrgMemberForm orgId={id} />
-        <OrgEnrollForm orgId={id} courses={courses} />
-      </div>
+      <section className="stack-sm" aria-labelledby="org-courses">
+        <h2 id="org-courses" className="section-title">קורסים לארגון</h2>
+        <p className="muted">הגישה חלה על כל חברי הארגון — גם על מי שיצטרף אחר כך — בתקופה שנקבעה.</p>
+        <GrantTable grants={grants} />
+        <GrantForm courses={courses} orgId={id} title="מתן גישה לקורסים" />
+      </section>
+      <section className="stack-sm" aria-labelledby="org-members">
+        <h2 id="org-members" className="section-title">חברי הארגון ({data.members.length})</h2>
+        <div className="split-even">
+          <PeopleImport orgId={id} title="הוספת רשימת אנשים" />
+          <OrgMemberForm orgId={id} />
+        </div>
+      </section>
       <div className="table-wrap">
         <table className="table">
           <thead><tr><th scope="col">שם</th><th scope="col">אימייל</th><th scope="col">תפקיד</th><th scope="col"><span className="visually-hidden">פעולות</span></th></tr></thead>

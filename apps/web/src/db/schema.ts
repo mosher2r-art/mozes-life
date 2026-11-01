@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
+  date,
   index,
   integer,
   jsonb,
@@ -311,4 +313,36 @@ export const certificate = pgTable(
     issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("certificate_user_idx").on(t.userId)],
+);
+
+/* ───────────── Access grants (licenses) ───────────── */
+
+/**
+ * Who may study which course, and when. A grant targets either one learner or a whole
+ * organization (current and future members). Dates are calendar days in Israel time;
+ * valid_until NULL means no end date. Enrollments keep progress; grants decide access.
+ */
+export const courseAccess = pgTable(
+  "course_access",
+  {
+    id: text("id").primaryKey(),
+    courseId: text("course_id")
+      .notNull()
+      .references(() => course.id, { onDelete: "cascade" }),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+    orgId: text("org_id").references(() => organization.id, { onDelete: "cascade" }),
+    validFrom: date("valid_from").notNull(),
+    validUntil: date("valid_until"),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    note: text("note"),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("course_access_user_idx").on(t.userId),
+    index("course_access_org_idx").on(t.orgId),
+    index("course_access_course_idx").on(t.courseId),
+    check("course_access_one_subject", sql`(${t.userId} is null) <> (${t.orgId} is null)`),
+    check("course_access_dates", sql`${t.validUntil} is null or ${t.validUntil} >= ${t.validFrom}`),
+  ],
 );

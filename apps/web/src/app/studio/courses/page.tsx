@@ -16,7 +16,7 @@ export default async function CoursesPage() {
   if (!can(user?.actor, "course.view_draft")) return <Forbidden />;
   const courses = await listCourses();
   const canCreate = can(user?.actor, "course.create");
-  const canAssign = can(user?.actor, "course.publish");
+  const canAssign = can(user?.actor, "org.manage");
 
   return (
     <div className="page">
@@ -65,7 +65,7 @@ export default async function CoursesPage() {
                   <td className="muted">{c.draftUpdatedAt ? fmt.format(c.draftUpdatedAt) : "—"}</td>
                   <td className="table-actions">
                     <Link href={`/studio/courses/${c.id}`} className="btn btn-quiet btn-sm">עריכה</Link>
-                    {canAssign && c.status === "published" && <Link href={`/studio/courses/${c.id}/learners`} className="btn btn-quiet btn-sm">לומדים</Link>}
+                    {canAssign && c.status === "published" && <Link href={`/studio/courses/${c.id}/learners`} className="btn btn-quiet btn-sm">גישה ולומדים</Link>}
                   </td>
                 </tr>
               ))}

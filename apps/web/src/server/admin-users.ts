@@ -4,7 +4,7 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { hashPassword } from "better-auth/crypto";
 import { isOrgRole, isPlatformRole, type OrgRole, type PlatformRole } from "@mozes/authz";
 import { db } from "@/db";
-import { account, auditLog, course, enrollment, membership, organization, session, user, userPlatformRole } from "@/db/schema";
+import { account, auditLog, course, membership, organization, session, user, userPlatformRole } from "@/db/schema";
 
 /** Readable temporary password (no look-alike characters). */
 export function generatePassword(): string {
@@ -167,18 +167,67 @@ export async function removeMember(actorId: string, orgId: string, userId: strin
   await db.insert(auditLog).values({ actorId, action: "org.remove_member", entity: "organization", entityId: orgId, details: { userId } });
 }
 
-/** Enrolls every member of the organization in a published course (existing enrollments are kept). */
-export async function enrollOrg(actorId: string, orgId: string, courseId: string): Promise<{ ok: true; added: number } | { ok: false; message: string }> {
-  const [c] = await db.select({ status: course.status }).from(course).where(eq(course.id, courseId));
-  if (!c || c.status !== "published") return { ok: false, message: "אפשר לשייך רק קורס שפורסם." };
-  const members = await db.select({ userId: membership.userId }).from(membership).where(eq(membership.orgId, orgId));
-  if (!members.length) return { ok: true, added: 0 };
-  const rows = members.map((m) => ({ id: randomUUID(), userId: m.userId, courseId }));
-  const inserted = await db.insert(enrollment).values(rows).onConflictDoNothing({ target: [enrollment.userId, enrollment.courseId] }).returning({ id: enrollment.id });
-  await db.insert(auditLog).values({ actorId, action: "org.enroll_course", entity: "organization", entityId: orgId, details: { courseId, added: inserted.length } });
-  return { ok: true, added: inserted.length };
-}
-
 export async function publishedCourses() {
   return db.select({ id: course.id, title: course.title }).from(course).where(eq(course.status, "published")).orderBy(asc(course.title));
+}
+
+/* ───────────── Bulk people ───────────── */
+
+export interface BulkResult {
+  line: number;
+  name: string;
+  email: string;
+  status: "created" | "existing" | "invalid";
+  password?: string;
+  raw?: string;
+}
+
+/**
+ * Adds a pasted list of people in one go: creates missing accounts (with temporary passwords),
+ * adds everyone to the organization, or — for private learners — grants them the chosen courses.
+ */
+export async function bulkPeople(
+  actorId: string,
+  input: { text: string; orgId?: string; courseIds?: string[]; validFrom?: string; validUntil?: string | null },
+): Promise<{ ok: true; results: BulkResult[]; granted: number } | { ok: false; message: string }> {
+  const { parsePeople, usersByEmail, grantAccess } = await import("./access");
+  const { people, invalid } = parsePeople(input.text);
+  if (!people.length && !invalid.length) return { ok: false, message: "הרשימה ריקה." };
+  if (people.length > 1000) return { ok: false, message: "אפשר להוסיף עד 1000 אנשים בכל פעם." };
+  if (input.orgId) {
+    const [org] = await db.select({ id: organization.id }).from(organization).where(eq(organization.id, input.orgId));
+    if (!org) return { ok: false, message: "הארגון לא נמצא." };
+  }
+  const existing = new Map((await usersByEmail(people.map((p) => p.email))).map((u) => [u.email, u]));
+  const results: BulkResult[] = invalid.map((i) => ({ line: i.line, name: "", email: "", status: "invalid", raw: i.raw }));
+  const userIds: string[] = [];
+  for (const p of people) {
+    const found = existing.get(p.email);
+    if (found) {
+      userIds.push(found.id);
+      results.push({ line: p.line, name: found.name, email: p.email, status: "existing" });
+    } else {
+      const r = await createUser(actorId, { name: p.name, email: p.email, roles: [] });
+      if (!r.ok) {
+        results.push({ line: p.line, name: p.name, email: p.email, status: "invalid", raw: r.message });
+        continue;
+      }
+      userIds.push(r.id);
+      results.push({ line: p.line, name: p.name, email: p.email, status: "created", password: r.password });
+    }
+  }
+  if (input.orgId && userIds.length) {
+    await db
+      .insert(membership)
+      .values(userIds.map((userId) => ({ orgId: input.orgId!, userId, role: "learner" as const })))
+      .onConflictDoNothing({ target: [membership.orgId, membership.userId] });
+  }
+  let granted = 0;
+  if (!input.orgId && input.courseIds?.length && userIds.length) {
+    const g = await grantAccess(actorId, { courseIds: input.courseIds, userIds, validFrom: input.validFrom!, validUntil: input.validUntil ?? null });
+    if (!g.ok) return g;
+    granted = g.created;
+  }
+  await db.insert(auditLog).values({ actorId, action: "people.bulk_add", entity: input.orgId ? "organization" : "user", entityId: input.orgId ?? null, details: { added: userIds.length, created: results.filter((r) => r.status === "created").length } });
+  return { ok: true, results: results.sort((a, b) => a.line - b.line), granted };
 }

@@ -36,9 +36,9 @@ test("admin creates a learner, enrolls their organization, resets the password a
   await page.getByRole("link", { name: "ארגונים" }).click();
   await page.getByRole("link", { name: "ארגון בדיקה" }).click();
   await expect(page.getByRole("cell", { name: "new.learner@e2e.test" })).toBeVisible();
-  await page.getByLabel("קורס").selectOption({ label: "הדגמת נגן MOZES LIFE" });
-  await page.getByRole("button", { name: "שיוך", exact: true }).click();
-  await expect(page.getByText(/חברי ארגון שויכו לקורס/)).toBeVisible();
+  await page.getByRole("checkbox", { name: "הדגמת נגן MOZES LIFE" }).check();
+  await page.getByRole("button", { name: "מתן גישה" }).click();
+  await expect(page.getByText("הגישה נוספה.")).toBeVisible();
   await p1.reload();
   await expect(p1.getByRole("heading", { name: "הדגמת נגן MOZES LIFE" })).toBeVisible();
 

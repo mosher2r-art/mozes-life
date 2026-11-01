@@ -47,7 +47,7 @@ export function PackageCourseView({
           {canPublish && !version && (
             <button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={publish}>{pending ? "מפרסם…" : "פרסום"}</button>
           )}
-          {canPublish && version && <Link href={`/studio/courses/${courseId}/learners`} className="btn btn-quiet btn-sm">לומדים</Link>}
+          {canPublish && version && <Link href={`/studio/courses/${courseId}/learners`} className="btn btn-quiet btn-sm">גישה ולומדים</Link>}
         </div>
         {msg && <p className={msg.tone === "ok" ? "form-ok" : "form-error"} role="status">{msg.text}</p>}
       </header>
