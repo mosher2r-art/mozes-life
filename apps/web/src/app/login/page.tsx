@@ -10,16 +10,10 @@ export default async function LoginPage() {
   if (await getCurrentUser()) redirect("/");
   return (
     <main className="auth">
-      <section className="auth-hero" aria-label="MOZES LIFE">
-        <Logo width={300} priority />
-        <p className="auth-hero-line">
-          פלטפורמת הלמידה הדיגיטלית
-          <br />
-          של MOZES
-        </p>
-      </section>
+      <section className="auth-hero" aria-hidden="true" />
       <section className="auth-panel">
         <div className="auth-form-wrap">
+          <Logo width={260} priority />
           <h1 className="auth-title">כניסה לחשבון</h1>
           <p className="auth-sub">התחברו כדי להמשיך ללמידה או לניהול התוכן.</p>
           <LoginForm />

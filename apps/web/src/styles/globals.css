@@ -70,27 +70,27 @@ img { max-width: 100%; height: auto; display: block; }
 /* Logo */
 .logo { display: inline-block; line-height: 0; }
 .logo-blend img { mix-blend-mode: lighten; }
-.logo-plate { background: #000; border-radius: var(--radius-md); padding: var(--sp-2) var(--sp-3); }
 
 /* ───────────── Login ───────────── */
 
 .auth { min-height: 100dvh; display: grid; grid-template-columns: 1fr; background: var(--surface); }
 .auth-hero {
-  position: relative; overflow: hidden; display: grid; align-content: center; justify-items: start; gap: var(--sp-5);
-  padding: var(--sp-8) var(--sp-5); background: var(--ink);
-  background-image: radial-gradient(ellipse 70% 60% at 85% 110%, rgb(119 174 38 / 0.22), transparent 70%),
-                    radial-gradient(ellipse 60% 50% at 0% 0%, rgb(46 84 99 / 0.55), transparent 70%);
-  color: #fff;
+  display: none; position: relative; overflow: hidden; background: var(--ink);
+  background-image:
+    radial-gradient(ellipse 70% 60% at 85% 110%, rgb(119 174 38 / 0.28), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 0% 0%, rgb(46 84 99 / 0.6), transparent 70%),
+    url("/demo/scene.jpg");
+  background-size: cover; background-position: center;
 }
-.auth-hero-line { margin: 0; font-size: var(--fs-lg); line-height: 1.6; color: var(--side-text-dim); }
 .auth-panel { display: grid; place-items: center; padding: var(--sp-6) var(--sp-5) var(--sp-8); }
 .auth-form-wrap { width: 100%; max-width: 380px; display: grid; gap: var(--sp-4); }
+.auth-form-wrap .logo { margin-bottom: var(--sp-5); }
 .auth-title { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.01em; }
 .auth-sub { color: var(--text-muted); margin-top: calc(var(--sp-3) * -1); }
 .auth-note { font-size: var(--fs-sm); color: var(--text-muted); }
 @media (min-width: 900px) {
   .auth { grid-template-columns: minmax(420px, 1.1fr) 1fr; }
-  .auth-hero { padding: var(--sp-8) clamp(2rem, 6vw, 6rem); }
+  .auth-hero { display: block; }
 }
 
 /* Simple centered card (403) */
@@ -220,9 +220,10 @@ img { max-width: 100%; height: auto; display: block; }
 /* ───────────── Academy (mobile first, light; dark brand bar carries the logo) ───────────── */
 
 .academy { min-height: 100dvh; display: grid; grid-template-rows: auto 1fr; background: var(--bg); color: var(--text); }
-.academy-header { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); background: var(--ink); color: #fff; }
-.academy-user { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--side-text-dim); }
-.icon-btn-dark { color: var(--side-text-dim); }
+.academy-header { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); background: var(--surface); border-bottom: 1px solid var(--border); }
+.academy-user { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--text-muted); }
+.icon-btn-light { color: var(--text-muted); }
+.icon-btn-light:hover { background: var(--surface-sunken); color: var(--text); }
 .academy-main { width: 100%; max-width: 960px; margin-inline: auto; padding: var(--sp-6) var(--sp-4) var(--sp-8); }
 .academy-main:focus { outline: none; }
 .academy-stack { display: grid; gap: var(--sp-5); }

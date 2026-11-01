@@ -21,7 +21,7 @@ export default async function LearnLayout({ children }: { children: React.ReactN
         <Logo width={132} priority />
         <div className="academy-user">
           <span>{user.name}</span>
-          <SignOutButton className="icon-btn icon-btn-dark" />
+          <SignOutButton className="icon-btn icon-btn-light" />
         </div>
       </header>
       <main id="main" className="academy-main" tabIndex={-1}>
