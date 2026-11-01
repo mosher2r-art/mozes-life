@@ -70,6 +70,8 @@ img { max-width: 100%; height: auto; display: block; }
 /* Logo */
 .logo { display: inline-block; line-height: 0; }
 .logo-blend img { mix-blend-mode: lighten; }
+/* Until a light-on-dark logo file exists: the transparent logo on a white card inside dark chrome. */
+.logo-card { display: inline-flex; justify-self: start; background: #fff; border-radius: 12px; padding: 8px 12px; }
 
 /* ───────────── Login ───────────── */
 
