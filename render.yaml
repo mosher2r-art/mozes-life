@@ -5,7 +5,7 @@ services:
     name: mozes-life
     runtime: node
     plan: free
-    region: frankfurt
+    region: ohio # same AWS region as the Neon database (US East 2)
     rootDir: .
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @mozes/web build
     startCommand: pnpm --filter @mozes/web start:hosted

@@ -8,7 +8,7 @@
 1. נכנסים ל-https://neon.tech ולוחצים **Sign up**. נרשמים עם GitHub.
 2. יוצרים פרויקט חדש:
    - **Project name:** `mozes-life`
-   - **Region:** `AWS Europe Central 1 (Frankfurt)` (קרוב ל-Render ולישראל)
+   - **Region:** `AWS US East 2 (Ohio)` (אותו אזור שבו רץ האתר ב-Render)
    - **Postgres version:** 16 או חדש יותר
 3. במסך הפרויקט לוחצים **Connect**. מעתיקים את **Connection string**. היא מתחילה ב-`postgresql://` ומסתיימת ב-`sslmode=require`.
    שומרים אותה בצד. **זו סיסמה, לא משתפים אותה.**
