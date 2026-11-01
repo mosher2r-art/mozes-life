@@ -22,6 +22,13 @@ describe("validateCourse", () => {
     expect(r.issues.filter((i) => i.severity !== "info")).toEqual([]);
   });
 
+  it("requires questions in exams and when a passing score is set", () => {
+    const exam = { ...course([text("a")]), units: [{ id: "u", title: "מבחן", kind: "exam", screens: [text("a")] }] };
+    expect(codes(exam)).toContain("EXAM_WITHOUT_QUESTIONS");
+    const scored = course([text("a")], { settings: { navigation: "linear", completion: { requireAllRequiredScreens: true, passingScore: 80 } } });
+    expect(codes(scored)).toContain("PASSING_SCORE_WITHOUT_QUESTIONS");
+  });
+
   it("reports schema errors with a path instead of throwing", () => {
     const r = validateCourse({ schema: "mozes-course" });
     expect(r.ok).toBe(false);

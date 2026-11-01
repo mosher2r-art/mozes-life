@@ -32,30 +32,41 @@ test("upload media, build a video screen, publish, and the learner can play it",
   await page.getByLabel("בחירת קבצים להעלאה").setInputFiles({ name: "page.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg/>") });
   await expect(page.getByText(/סוג הקובץ אינו נתמך/)).toBeVisible();
 
-  // Build a course with a video screen
-  await page.getByRole("link", { name: "קורסים" }).click();
-  await page.getByLabel("קורס חדש").fill("קורס וידאו E2E");
-  await page.getByRole("button", { name: "יצירת קורס" }).click();
-  await expect(page).toHaveURL(/\/studio\/courses\/c-/);
-  await page.getByRole("button", { name: "+ מסך" }).click();
-  await page.locator(".ed-picker").getByRole("button", { name: /^וידאו/ }).click();
+  // Build a chapter with a video screen
+  await page.getByRole("link", { name: "מאגר פרקים" }).click();
+  await page.getByLabel("שם הפרק").fill("פרק וידאו E2E");
+  await page.getByRole("button", { name: "יצירת פרק" }).click();
+  await expect(page).toHaveURL(/\/studio\/chapters\/ch-/);
+  await page.getByRole("button", { name: "+ הוספת מסך" }).first().click();
+  await page.getByRole("dialog", { name: "הוספת מסך" }).getByRole("button", { name: /^וידאו/ }).click();
   await expect(page.getByRole("dialog", { name: /בחירת קובץ לוידאו/ })).toBeVisible();
   await page.getByRole("button", { name: "בחירת demo-clip.mp4" }).click();
-  const video = page.locator(".mp-player video");
+  await expect(page.getByText("כל השינויים נשמרו")).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: "תצוגה מקדימה" }).click();
+  const video = page.getByRole("dialog", { name: "תצוגה מקדימה" }).locator(".mp-player video");
   await expect(video).toHaveCount(1);
   const src = await video.locator("source").getAttribute("src");
   expect(src).toMatch(/^\/api\/media\/a-[a-f0-9]+$/);
   const ranged = await page.request.get(src!, { headers: { range: "bytes=0-99" } });
   expect(ranged.status()).toBe(206);
   expect(ranged.headers()["content-type"]).toBe("video/mp4");
-  await expect(page.getByText("כל השינויים נשמרו")).toBeVisible({ timeout: 10_000 });
   await page.screenshot({ path: "test-results/screens/editor-video.png" });
+  await page.getByRole("button", { name: "סגירה" }).click();
 
   // A file in use cannot be deleted
   const id = src!.split("/").pop()!;
   expect((await page.request.delete(`/api/studio/media/${id}`)).status()).toBe(409);
 
-  // Publish and assign
+  // Course with this chapter: publish and assign
+  await page.goto("/studio/courses");
+  await page.getByLabel("קורס חדש").fill("קורס וידאו E2E");
+  await page.getByRole("button", { name: "יצירת קורס" }).click();
+  await expect(page).toHaveURL(/\/studio\/courses\/c-/);
+  await page.getByRole("button", { name: "+ הוספת פרק" }).first().click();
+  await page.getByRole("dialog").getByRole("checkbox", { name: /פרק וידאו E2E/ }).check();
+  await page.getByRole("dialog").getByRole("button", { name: "הוספה לקורס" }).click();
+  await expect(page.locator(".cb-chapter")).toHaveCount(1);
+  await expect(page.getByText("נשמר", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "פרסום", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: "פרסום", exact: true }).click();
   await expect(page.getByText(/גרסה 1 פורסמה/)).toBeVisible();

@@ -255,7 +255,7 @@ export function step(course: Course, state: PlayerState, event: PlayerEvent): Pl
 /* ───────────── Results ───────────── */
 
 export interface Summary {
-  /** Earned / possible across questions on visited screens. null when no questions were seen. */
+  /** Earned / possible across questions on visited screens (exam units only, when the course has any). null when none were seen. */
   scorePercent: number | null;
   earned: number;
   possible: number;
@@ -272,11 +272,15 @@ export function summarize(course: Course, state: PlayerState): Summary {
   let earned = 0;
   let possible = 0;
   const incompleteRequired: string[] = [];
+  // When the course has exam units, practice questions in lessons do not count toward the score.
+  const examOnly = course.units.some((u) => u.kind === "exam");
   for (const id of state.visited) {
-    const screen = byId.get(id)?.screen;
+    const ref = byId.get(id);
+    const screen = ref?.screen;
     if (!screen) continue;
+    const scored = !examOnly || ref.unit.kind === "exam";
     for (const c of screenComponents(screen)) {
-      if (!isQuestion(c)) continue;
+      if (!isQuestion(c) || !scored) continue;
       possible += c.points;
       earned += state.questions[c.id]?.earned ?? 0;
     }

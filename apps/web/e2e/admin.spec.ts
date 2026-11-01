@@ -44,9 +44,16 @@ test("admin creates a learner, enrolls their organization, resets the password a
 
   // Reset password: the old one stops working, sessions are revoked
   await page.getByRole("link", { name: "לומדת חדשה" }).click();
+  // The administrator types the new password themselves
   await page.getByRole("button", { name: "איפוס סיסמה" }).click();
-  const pass2 = (await page.locator(".reveal-pass").textContent())!.trim();
-  expect(pass2).not.toBe(pass1);
+  await page.getByLabel("אקליד בעצמי").check();
+  await page.getByLabel("הסיסמה (לפחות 10 תווים)").fill("short");
+  await page.getByRole("button", { name: "שמירת סיסמה" }).click();
+  await expect(page.getByText("הסיסמה צריכה להכיל לפחות 10 תווים.")).toBeVisible();
+  const pass2 = "Typed-by-admin-42";
+  await page.getByLabel("הסיסמה (לפחות 10 תווים)").fill(pass2);
+  await page.getByRole("button", { name: "שמירת סיסמה" }).click();
+  await expect(page.locator(".reveal-pass")).toHaveText(pass2);
   await p1.reload();
   await expect(p1).toHaveURL(/\/login$/);
   await loginAs(p1, "new.learner@e2e.test", pass1);

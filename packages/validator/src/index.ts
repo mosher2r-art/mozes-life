@@ -46,7 +46,7 @@ export function validateCourse(input: unknown): ValidationResult {
     return { ok: false, issues };
   }
   const course = parsed.data;
-  const issues = [...checkStructure(course), ...checkContent(course), ...checkFlow(course)];
+  const issues = [...checkStructure(course), ...checkContent(course), ...checkFlow(course), ...checkScoring(course)];
   return { ok: !issues.some((i) => i.severity === "error"), issues, course };
 }
 
@@ -284,5 +284,22 @@ function checkFlow(course: Course): Issue[] {
     }
   }
 
+  return issues;
+}
+
+/* ───────────── Scoring: exams and passing score ───────────── */
+
+function checkScoring(course: Course): Issue[] {
+  const issues: Issue[] = [];
+  const hasQuestion = (screens: Screen[]) => screens.some((s) => screenComponents(s).some(isQuestion));
+  for (const unit of course.units) {
+    if (unit.kind === "exam" && unit.screens.length && !hasQuestion(unit.screens)) {
+      issues.push({ severity: "error", code: "EXAM_WITHOUT_QUESTIONS", message: `במבחן "${unit.title}" אין שאלות` });
+    }
+  }
+  const { passingScore } = course.settings.completion;
+  if (passingScore !== null && !hasQuestion(course.units.flatMap((u) => u.screens))) {
+    issues.push({ severity: "error", code: "PASSING_SCORE_WITHOUT_QUESTIONS", message: "נקבע ציון עובר, אבל בקורס אין שאלות" });
+  }
   return issues;
 }

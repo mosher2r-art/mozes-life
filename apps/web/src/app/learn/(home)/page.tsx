@@ -132,12 +132,12 @@ export default async function MyCourses() {
             {certs.map((c) => (
               <li key={c.id}>
                 <span className="cert-list-title">{c.courseTitle}</span>
-                <a className="btn btn-quiet btn-sm" href={`/certificates/${c.code}`}>צפייה בתעודה</a>
+                <a className="btn btn-quiet btn-sm" href={`/certificates/${c.code}`} aria-label={`צפייה בתעודה: ${c.courseTitle}`}>צפייה בתעודה</a>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="muted">תעודה מונפקת אוטומטית בסיום מוצלח של קורס. קורסי הדגמה אינם מזכים בתעודה.</p>
+          <p className="muted">תעודה מונפקת אוטומטית בסיום מוצלח של קורס שמעניק תעודה.</p>
         )}
       </section>
     </div>

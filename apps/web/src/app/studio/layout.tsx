@@ -13,6 +13,7 @@ export const metadata: Metadata = { title: { default: "Studio", template: "%s ·
 const NAV = [
   { href: "/studio", label: "לוח בקרה", icon: "dashboard" },
   { href: "/studio/courses", label: "קורסים", icon: "book" },
+  { href: "/studio/chapters", label: "מאגר פרקים", icon: "layers" },
   { href: "/studio/media", label: "ספריית מדיה", icon: "media" },
   { href: "/studio/import", label: "ייבוא לומדה", icon: "import" },
   { href: "/studio/users", label: "משתמשים", icon: "users", action: "users.manage_platform" },
@@ -35,9 +36,7 @@ export default async function StudioLayout({ children }: { children: React.React
       </a>
       <aside className="studio-side">
         <div className="studio-brand">
-          <span className="logo-card">
-            <Logo width={150} priority />
-          </span>
+          <Logo width={170} priority surface="dark" />
           <span className="studio-product">STUDIO</span>
         </div>
         <StudioNav items={NAV.filter((n) => !("action" in n) || can(user.actor, n.action))} />

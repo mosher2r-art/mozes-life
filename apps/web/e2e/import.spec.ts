@@ -75,6 +75,8 @@ test("import a SCORM 1.2 package, preview it in isolation, publish, and record t
   await page.getByRole("button", { name: "יצירת קורס כטיוטה" }).click();
   await expect(page).toHaveURL(/\/studio\/courses\/c-/);
   await expect(page.getByText("טיוטה", { exact: true })).toBeVisible();
+  await page.getByLabel(/הקורס מעניק תעודה/).check();
+  await expect(page.getByText("נשמר", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "פרסום" }).click();
   await expect(page.getByText(/הקורס פורסם \(גרסה 1\)/)).toBeVisible();
   await page.getByRole("link", { name: "גישה ולומדים" }).click();
@@ -97,7 +99,7 @@ test("import a SCORM 1.2 package, preview it in isolation, publish, and record t
   await expect(card.getByText("90%", { exact: true })).toBeVisible();
 
   // A certificate is issued for the passed (non-demo) course and verifiable without signing in
-  await lp.getByRole("link", { name: "צפייה בתעודה" }).click();
+  await lp.getByRole("link", { name: "צפייה בתעודה: לומדת SCORM לדוגמה" }).click();
   await expect(lp.getByRole("heading", { name: USERS.learner.name })).toBeVisible();
   await expect(lp.getByText("לומדת SCORM לדוגמה")).toBeVisible();
   await expect(lp.getByText("90%")).toBeVisible();

@@ -10,6 +10,9 @@ export function PackageCourseView({
   launchUrl,
   latestVersion,
   canPublish,
+  canEdit,
+  revision,
+  certificateEnabled,
   report,
 }: {
   courseId: string;
@@ -17,8 +20,27 @@ export function PackageCourseView({
   launchUrl: string | null;
   latestVersion: number | null;
   canPublish: boolean;
+  canEdit: boolean;
+  revision: number;
+  certificateEnabled: boolean;
   report: React.ReactNode;
 }) {
+  const [rev, setRev] = useState(revision);
+  const [cert, setCert] = useState(certificateEnabled);
+  const [certMsg, setCertMsg] = useState<string | null>(null);
+  async function toggleCertificate(on: boolean) {
+    setCert(on);
+    setCertMsg(null);
+    const res = await fetch(`/api/studio/courses/${courseId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ baseRevision: rev, certificateEnabled: on }) }).catch(() => null);
+    const body = (await res?.json().catch(() => ({}))) as { revision?: number; message?: string } | undefined;
+    if (res?.ok && body?.revision) {
+      setRev(body.revision);
+      setCertMsg("נשמר");
+    } else {
+      setCert(!on);
+      setCertMsg(body?.message ?? "השינוי לא נשמר.");
+    }
+  }
   const [version, setVersion] = useState(latestVersion);
   const [msg, setMsg] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
   const [pending, setPending] = useState(false);
@@ -50,6 +72,11 @@ export function PackageCourseView({
           {canPublish && version && <Link href={`/studio/courses/${courseId}/learners`} className="btn btn-quiet btn-sm">גישה ולומדים</Link>}
         </div>
         {msg && <p className={msg.tone === "ok" ? "form-ok" : "form-error"} role="status">{msg.text}</p>}
+        <label className="ef-check">
+          <input type="checkbox" checked={cert} disabled={!canEdit} onChange={(e) => void toggleCertificate(e.target.checked)} />
+          הקורס מעניק תעודה (כשהלומדה מדווחת &quot;עבר&quot; או &quot;הושלם&quot;)
+        </label>
+        {certMsg && <span className="ef-hint" role="status">{certMsg}</span>}
       </header>
       <div className="workbench">
         <div className="canvas">

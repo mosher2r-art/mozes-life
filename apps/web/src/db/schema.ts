@@ -178,7 +178,33 @@ export const course = pgTable("course", {
   /** For package courses: the package currently offered to new learners. */
   packageId: text("package_id"),
   publishedVersionId: text("published_version_id"),
+  /**
+   * Native courses: ordered chapter ids from the chapter bank. null = not yet migrated from the
+   * older single-document format (converted on first open).
+   */
+  chapterIds: jsonb("chapter_ids").$type<string[]>(),
+  /** Bumped on every structural change; protects against two editors overwriting each other. */
+  builderRevision: integer("builder_revision").notNull().default(1),
+  /** Completing (or passing, when a score is required) issues a certificate bearing the course title. */
+  certificateEnabled: boolean("certificate_enabled").notNull().default(false),
+  /** 0–100 on exam chapters; null = completion only. */
+  passingScore: integer("passing_score"),
   createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  ...timestamps,
+});
+
+export const chapterKind = pgEnum("chapter_kind", ["lesson", "exam"]);
+
+/** The chapter bank: reusable lessons and exams that courses are composed from. */
+export const chapter = pgTable("chapter", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  kind: chapterKind("kind").notNull().default("lesson"),
+  /** A single-unit mozes-course document (validated on every save). */
+  content: jsonb("content").notNull(),
+  revision: integer("revision").notNull().default(1),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
   ...timestamps,
 });
 

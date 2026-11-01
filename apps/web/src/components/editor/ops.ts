@@ -206,7 +206,7 @@ function move<T>(arr: T[], index: number, delta: number): void {
 export function addUnit(course: Course): { course: Course; unitId: string } {
   const c = clone(course);
   const unitId = newId("u");
-  c.units.push({ id: unitId, title: `יחידה ${c.units.length + 1}`, screens: [] });
+  c.units.push({ id: unitId, title: `יחידה ${c.units.length + 1}`, kind: "lesson", screens: [] });
   return { course: c, unitId };
 }
 

@@ -2,7 +2,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { asset, auditLog, courseDraft, courseVersion } from "@/db/schema";
+import { asset, auditLog, chapter, courseDraft, courseVersion } from "@/db/schema";
 import { checkDeclared, MEDIA_TYPES, type AssetKind } from "@/lib/media-policy";
 import { createUpload, driver, inspect, publicUrl, remove, type UploadTarget } from "./storage";
 
@@ -89,14 +89,15 @@ export async function setAltText(id: string, altText: string): Promise<boolean> 
   return r.length > 0;
 }
 
-/** Deletion is refused while any draft or published version still uses the file. */
+/** Deletion is refused while any chapter, draft or published version still uses the file. */
 export async function deleteAsset(actorId: string, id: string): Promise<{ ok: true } | { ok: false; reason: "not_found" | "in_use" }> {
   const [a] = await db.select().from(asset).where(eq(asset.id, id));
   if (!a) return { ok: false, reason: "not_found" };
   const needle = `"assetId": "${id}"`;
   const [inDraft] = await db.select({ n: sql<number>`count(*)::int` }).from(courseDraft).where(sql`${courseDraft.content}::text like ${"%" + needle + "%"}`);
   const [inVersion] = await db.select({ n: sql<number>`count(*)::int` }).from(courseVersion).where(sql`${courseVersion.content}::text like ${"%" + needle + "%"}`);
-  if ((inDraft?.n ?? 0) + (inVersion?.n ?? 0) > 0) return { ok: false, reason: "in_use" };
+  const [inChapter] = await db.select({ n: sql<number>`count(*)::int` }).from(chapter).where(sql`${chapter.content}::text like ${"%" + needle + "%"}`);
+  if ((inDraft?.n ?? 0) + (inVersion?.n ?? 0) + (inChapter?.n ?? 0) > 0) return { ok: false, reason: "in_use" };
   await remove(a.storageKey).catch(() => undefined);
   await db.delete(asset).where(eq(asset.id, id));
   await db.insert(auditLog).values({ actorId, action: "asset.delete", entity: "asset", entityId: id, details: { filename: a.filename } });

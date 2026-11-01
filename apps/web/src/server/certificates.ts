@@ -8,7 +8,8 @@ const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const newCode = () => `ML-${Array.from({ length: 10 }, () => ALPHABET[randomInt(ALPHABET.length)]).join("")}`;
 
 /**
- * Issues certificates for this learner's successful, non-demo enrollments that don't have one.
+ * Issues certificates for this learner's successful enrollments in courses that grant one.
+ * "Successful" is decided by the course version itself: passed when it requires a score, otherwise completed.
  * Name, course title and score are snapshotted so the certificate never changes afterwards.
  */
 export async function ensureCertificates(userId: string): Promise<void> {
@@ -18,7 +19,7 @@ export async function ensureCertificates(userId: string): Promise<void> {
     .innerJoin(course, eq(course.id, enrollment.courseId))
     .innerJoin(user, eq(user.id, enrollment.userId))
     .leftJoin(certificate, eq(certificate.enrollmentId, enrollment.id))
-    .where(and(eq(enrollment.userId, userId), inArray(enrollment.status, ["passed", "completed"]), eq(course.isDemo, false), isNull(certificate.id)));
+    .where(and(eq(enrollment.userId, userId), inArray(enrollment.status, ["passed", "completed"]), eq(course.isDemo, false), eq(course.certificateEnabled, true), isNull(certificate.id)));
   for (const d of due) {
     await db
       .insert(certificate)

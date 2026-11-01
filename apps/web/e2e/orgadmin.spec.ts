@@ -56,7 +56,8 @@ test("organization admin: progress report, CSV export, seat limit and isolation 
   await expect(mp.getByText(/חריגה ממכסת המשתמשים של הארגון/)).toBeVisible();
 
   // Password reset for a member who belongs only to this organization
-  await mp.getByRole("row", { name: /ronit@e2e.test/ }).getByRole("button", { name: "איפוס סיסמה" }).click();
+  await mp.getByRole("row", { name: /ronit@e2e.test/ }).getByRole("button", { name: /איפוס סיסמה/ }).click();
+  await mp.getByRole("button", { name: "שמירת סיסמה" }).click(); // random is the default
   await expect(mp.locator(".reveal-pass")).toHaveText(/^[A-Za-z0-9]{12}$/);
 
   // Isolation: other organizations and Studio are off limits

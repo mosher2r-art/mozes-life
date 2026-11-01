@@ -65,7 +65,8 @@ export async function createUser(actorId: string, input: CreateUserInput): Promi
   const email = input.email.trim().toLowerCase();
   const roles = input.roles.filter(isPlatformRole);
   const password = input.password || generatePassword();
-  if (password.length < 10) return { ok: false, message: "הסיסמה צריכה להכיל לפחות 10 תווים." };
+  const problem = passwordProblem(password);
+  if (problem) return { ok: false, message: problem };
   if (input.orgRole && !isOrgRole(input.orgRole)) return { ok: false, message: "תפקיד בארגון לא תקין." };
   const [exists] = await db.select({ id: user.id }).from(user).where(eq(user.email, email));
   if (exists) return { ok: false, message: "כבר קיים משתמש עם האימייל הזה." };
@@ -87,14 +88,33 @@ export async function createUser(actorId: string, input: CreateUserInput): Promi
 
 const revokeSessions = (userId: string) => db.delete(session).where(eq(session.userId, userId));
 
-export async function resetPassword(actorId: string, userId: string): Promise<string | null> {
-  const password = generatePassword();
+export const PASSWORD_MIN = 10;
+export const PASSWORD_MAX = 128;
+
+/** Checks an administrator-chosen password. Returns a Hebrew reason, or null when acceptable. */
+export function passwordProblem(p: string): string | null {
+  if (p.length < PASSWORD_MIN) return `הסיסמה צריכה להכיל לפחות ${PASSWORD_MIN} תווים.`;
+  if (p.length > PASSWORD_MAX) return "הסיסמה ארוכה מדי.";
+  if (p.trim() !== p) return "הסיסמה לא יכולה להתחיל או להסתיים ברווח.";
+  return null;
+}
+
+/**
+ * Sets a new password: the one the administrator typed, or a random one. Signs the user out everywhere.
+ * The password itself is never logged.
+ */
+export async function resetPassword(actorId: string, userId: string, chosen?: string): Promise<{ ok: true; password: string } | { ok: false; reason: "not_found" | "invalid"; message?: string }> {
+  if (chosen !== undefined) {
+    const problem = passwordProblem(chosen);
+    if (problem) return { ok: false, reason: "invalid", message: problem };
+  }
+  const password = chosen ?? generatePassword();
   const hash = await hashPassword(password);
   const r = await db.update(account).set({ password: hash }).where(and(eq(account.userId, userId), eq(account.providerId, "credential"))).returning({ id: account.id });
-  if (!r.length) return null;
+  if (!r.length) return { ok: false, reason: "not_found" };
   await revokeSessions(userId);
-  await db.insert(auditLog).values({ actorId, action: "user.reset_password", entity: "user", entityId: userId });
-  return password;
+  await db.insert(auditLog).values({ actorId, action: "user.reset_password", entity: "user", entityId: userId, details: { manual: chosen !== undefined } });
+  return { ok: true, password };
 }
 
 export async function setRoles(actorId: string, userId: string, roles: string[]): Promise<{ ok: true } | { ok: false; message: string }> {

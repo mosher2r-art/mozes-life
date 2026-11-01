@@ -38,11 +38,76 @@ export function PasswordReveal({ email, password }: { email: string; password: s
   );
 }
 
+/**
+ * Password reset: a random password, or one the administrator types. The result is shown once.
+ * Used by system admins (Studio) and organization admins (their own members).
+ */
+export function PasswordReset({ endpoint, email, name, link = false }: { endpoint: string; email: string; name?: string; link?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"random" | "manual">("random");
+  const [value, setValue] = useState("");
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const fid = endpoint.replace(/[^A-Za-z0-9]/g, "");
+
+  if (!open) {
+    return (
+      <>
+        <button type="button" className={link ? "ed-link" : "btn btn-quiet btn-sm"} aria-label={name ? `איפוס סיסמה ל${name}` : undefined} onClick={() => { setOpen(true); setDone(null); setError(null); }}>
+          איפוס סיסמה
+        </button>
+        {done && <PasswordReveal email={email} password={done} />}
+      </>
+    );
+  }
+  return (
+    <form
+      className="pw-reset"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setError(null);
+        if (mode === "manual" && value.length < 10) return setError("הסיסמה צריכה להכיל לפחות 10 תווים.");
+        setBusy(true);
+        const r = await call(endpoint, "POST", mode === "manual" ? { password: value } : {});
+        setBusy(false);
+        if (r.ok) {
+          setDone(String(r.data.password));
+          setOpen(false);
+          setValue("");
+        } else setError(String(r.data.message ?? "איפוס הסיסמה נכשל."));
+      }}
+    >
+      <fieldset className="radio-row">
+        <legend>סיסמה חדשה{name ? ` ל${name}` : ""}</legend>
+        <label><input type="radio" name={`${fid}-mode`} checked={mode === "random"} onChange={() => setMode("random")} /> אקראית</label>
+        <label><input type="radio" name={`${fid}-mode`} checked={mode === "manual"} onChange={() => setMode("manual")} /> אקליד בעצמי</label>
+      </fieldset>
+      {mode === "manual" && (
+        <div className="field">
+          <label htmlFor={`${fid}-pw`}>הסיסמה (לפחות 10 תווים)</label>
+          <div className="pw-input">
+            <input id={`${fid}-pw`} type={show ? "text" : "password"} dir="ltr" autoComplete="new-password" value={value} onChange={(e) => setValue(e.target.value)} maxLength={128} />
+            <button type="button" className="ed-link" onClick={() => setShow(!show)}>{show ? "הסתרה" : "הצגה"}</button>
+          </div>
+        </div>
+      )}
+      <p className="ef-hint">המשתמש ינותק מכל המכשירים ויצטרך להיכנס עם הסיסמה החדשה.</p>
+      <div className="row-actions">
+        <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{busy ? "שומר…" : "שמירת סיסמה"}</button>
+        <button type="button" className="btn btn-quiet btn-sm" onClick={() => setOpen(false)}>ביטול</button>
+      </div>
+      {error && <p className="form-error" role="alert">{error}</p>}
+    </form>
+  );
+}
+
 const STAFF_ROLES = ["editor", "content_admin", "medical_reviewer", "super_admin"] as const;
 
 export function NewUserForm({ orgs }: { orgs: { id: string; name: string }[] }) {
   const router = useRouter();
-  const [form, setForm] = useState({ name: "", email: "", kind: "learner", orgId: orgs[0]?.id ?? "" });
+  const [form, setForm] = useState({ name: "", email: "", kind: "learner", orgId: orgs[0]?.id ?? "", password: "" });
   const [pending, setPending] = useState(false);
   const [msg, setMsg] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
   const [created, setCreated] = useState<{ email: string; password: string } | null>(null);
@@ -55,14 +120,15 @@ export function NewUserForm({ orgs }: { orgs: { id: string; name: string }[] }) 
         setPending(true);
         setMsg(null);
         setCreated(null);
+        const pw = form.password ? { password: form.password } : {};
         const body = isLearner
-          ? { name: form.name, email: form.email, roles: [], ...(form.orgId ? { orgId: form.orgId, orgRole: form.kind } : {}) }
-          : { name: form.name, email: form.email, roles: [form.kind] };
+          ? { name: form.name, email: form.email, roles: [], ...pw, ...(form.orgId ? { orgId: form.orgId, orgRole: form.kind } : {}) }
+          : { name: form.name, email: form.email, roles: [form.kind], ...pw };
         const r = await call("/api/studio/users", "POST", body);
         setPending(false);
         if (r.ok) {
           setCreated({ email: form.email.trim().toLowerCase(), password: String(r.data.password) });
-          setForm({ ...form, name: "", email: "" });
+          setForm({ ...form, name: "", email: "", password: "" });
           router.refresh();
         } else setMsg({ tone: "bad", text: String(r.data.message ?? "יצירת המשתמש נכשלה.") });
       }}
@@ -87,8 +153,12 @@ export function NewUserForm({ orgs }: { orgs: { id: string; name: string }[] }) 
           </select>
         </div>
       )}
+      <div className="field">
+        <label htmlFor="nu-pw">סיסמה (לא חובה)</label>
+        <input id="nu-pw" type="text" dir="ltr" autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} minLength={10} maxLength={128} placeholder="ריק = סיסמה אקראית" />
+      </div>
       <button className="btn btn-primary" type="submit" disabled={pending}>{pending ? "יוצר…" : "יצירת משתמש"}</button>
-      <p className="muted form-wide">תיווצר סיסמה זמנית אקראית. שליחת הזמנות במייל תתווסף בהמשך.</p>
+      <p className="muted form-wide">אם לא תקלידו סיסמה, תיווצר סיסמה אקראית (לפחות 10 תווים). שליחת הזמנות במייל תתווסף בהמשך.</p>
       <div className="form-wide"><Msg m={msg} />{created && <PasswordReveal {...created} />}</div>
     </form>
   );
@@ -98,7 +168,6 @@ export function UserActions({ id, email, roles, disabled, isSelf }: { id: string
   const router = useRouter();
   const [sel, setSel] = useState<string[]>(roles);
   const [msg, setMsg] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
-  const [password, setPassword] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
   return (
     <div className="stack-sm">
@@ -121,11 +190,7 @@ export function UserActions({ id, email, roles, disabled, isSelf }: { id: string
       <section className="block">
         <h2 className="form-title">סיסמה וגישה</h2>
         <div className="row-actions">
-          <button type="button" className="btn btn-quiet btn-sm" onClick={async () => {
-            const r = await call(`/api/studio/users/${id}/password`, "POST");
-            if (r.ok) setPassword(String(r.data.password));
-            else setMsg({ tone: "bad", text: "איפוס הסיסמה נכשל." });
-          }}>איפוס סיסמה</button>
+          <PasswordReset endpoint={`/api/studio/users/${id}/password`} email={email} />
           {!isSelf && (confirm ? (
             <>
               <span className="muted">{disabled ? "להפעיל מחדש את החשבון?" : "להשבית את החשבון? המשתמש יתנתק מיד."}</span>
@@ -141,7 +206,6 @@ export function UserActions({ id, email, roles, disabled, isSelf }: { id: string
             <button type="button" className="btn btn-quiet btn-sm" onClick={() => setConfirm(true)}>{disabled ? "הפעלת החשבון" : "השבתת החשבון"}</button>
           ))}
         </div>
-        {password && <PasswordReveal email={email} password={password} />}
       </section>
       <Msg m={msg} />
     </div>

@@ -1,11 +1,10 @@
 import Image from "next/image";
 
 /**
- * Brand logo.
- * - light surfaces: transparent version (black backdrop removed from the approved file;
- *   shapes and colours untouched — approved by the brand owner).
- * - dark surfaces: the original on-black file, composited with `mix-blend-mode: lighten`
- *   so its backdrop disappears. A light-on-dark logo variant is still pending.
+ * Brand logo — both files are supplied by the brand owner; shapes and colours are untouched
+ * (only transparent margins were trimmed).
+ * - light surfaces: dark lettering on transparent background.
+ * - dark surfaces: light (silver) lettering on transparent background.
  */
 export function Logo({
   width = 240,
@@ -18,12 +17,12 @@ export function Logo({
 }) {
   const dark = surface === "dark";
   return (
-    <span className={dark ? "logo logo-blend" : "logo"}>
+    <span className="logo">
       <Image
-        src={dark ? "/brand/mozes-life-logo-on-black.webp" : "/brand/mozes-life-logo-transparent.webp"}
+        src={dark ? "/brand/mozes-life-logo-light.webp" : "/brand/mozes-life-logo-transparent.webp"}
         alt="MOZES LIFE — לומדים להציל חיים"
-        width={dark ? 2000 : 1992}
-        height={dark ? 667 : 416}
+        width={dark ? 1968 : 1992}
+        height={dark ? 395 : 416}
         style={{ width, height: "auto" }}
         priority={priority}
       />

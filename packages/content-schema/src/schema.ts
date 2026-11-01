@@ -291,8 +291,15 @@ export const Screen = z
   .strict();
 export type Screen = z.infer<typeof Screen>;
 
+/**
+ * lesson = learning content (questions are practice).
+ * exam   = assessment: when a course contains exam units, ONLY their questions count toward the score.
+ */
+export const UnitKind = z.enum(["lesson", "exam"]);
+export type UnitKind = z.infer<typeof UnitKind>;
+
 export const Unit = z
-  .object({ id: Id, title: RequiredText(120), screens: z.array(Screen).max(200) })
+  .object({ id: Id, title: RequiredText(120), kind: UnitKind.default("lesson"), screens: z.array(Screen).max(200) })
   .strict();
 export type Unit = z.infer<typeof Unit>;
 

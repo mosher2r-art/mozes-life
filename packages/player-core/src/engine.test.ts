@@ -150,6 +150,16 @@ describe("completion", () => {
   it("is in progress before the end", () => {
     expect(summarize(course, start(course)).status).toBe("in_progress");
   });
+
+  it("counts only exam units when the course has any", () => {
+    const withKinds = (k1: "lesson" | "exam", k2: "lesson" | "exam") =>
+      Course.parse({ ...fixtureInput, units: fixtureInput.units.map((u, i) => ({ ...u, kind: i === 0 ? k1 : k2 })) });
+    const failed = playThrough("o-red");
+    // The questions live in unit 1. As practice (lesson) they no longer count once unit 2 is an exam.
+    expect(summarize(withKinds("lesson", "exam"), failed)).toMatchObject({ possible: 0, scorePercent: null, status: "passed" });
+    // As the exam itself they do.
+    expect(summarize(withKinds("exam", "lesson"), failed)).toMatchObject({ status: "failed", scorePercent: 0 });
+  });
 });
 
 describe("reconcile", () => {

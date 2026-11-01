@@ -1,13 +1,13 @@
 import "server-only";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { Course, type CourseInput, flattenScreens } from "@mozes/content-schema";
+import { z } from "zod";
+import { Course, type CourseInput, composeCourse, flattenScreens, isQuestion } from "@mozes/content-schema";
 import { validateCourse } from "@mozes/validator";
 import { db } from "@/db";
 import { contentHash } from "@/lib/content-hash";
 import { auditLog, course, courseDraft, courseVersion, coursePackage, enrollment, user } from "@/db/schema";
-
-const rid = (prefix: string) => `${prefix}-${randomBytes(5).toString("hex")}`;
+import { chaptersByIds, chaptersFromLegacy, rid } from "./chapters";
 
 export interface CourseRow {
   id: string;
@@ -17,8 +17,29 @@ export interface CourseRow {
   kind: "native" | "package";
   latestVersion: number | null;
   learners: number;
-  draftUpdatedAt: Date | null;
+  chapters: number;
+  certificateEnabled: boolean;
+  updatedAt: Date;
   unpublishedChanges: boolean;
+}
+
+type CourseMeta = { id: string; title: string; chapterIds: string[] | null; passingScore: number | null };
+
+/** The learner-facing document a course would publish right now (from the current chapters). */
+function composeWith(c: CourseMeta, chapters: Map<string, { title: string; kind: "lesson" | "exam"; doc: Course; updatedAt: Date }>): CourseInput {
+  const list = (c.chapterIds ?? []).flatMap((id) => {
+    const ch = chapters.get(id);
+    return ch ? [ch] : [];
+  });
+  // A passing score applies to exams only; a course without exam chapters is completion-based.
+  const passingScore = list.some((ch) => ch.kind === "exam") ? c.passingScore : null;
+  return composeCourse({ id: c.id, title: c.title, passingScore, chapters: list });
+}
+
+/** Hash of the composed document, after defaults are applied exactly as at publish time. */
+function composedHash(doc: CourseInput): string | null {
+  const r = Course.safeParse(doc);
+  return r.success ? contentHash(r.data) : null;
 }
 
 export async function listCourses(): Promise<CourseRow[]> {
@@ -29,124 +50,173 @@ export async function listCourses(): Promise<CourseRow[]> {
       status: course.status,
       isDemo: course.isDemo,
       kind: course.kind,
+      chapterIds: course.chapterIds,
+      passingScore: course.passingScore,
+      certificateEnabled: course.certificateEnabled,
+      updatedAt: course.updatedAt,
       publishedHash: courseVersion.contentHash,
       latestVersion: courseVersion.versionNo,
-      draftContent: courseDraft.content,
-      draftUpdatedAt: courseDraft.updatedAt,
       learners: sql<number>`(select count(*)::int from ${enrollment} where ${enrollment.courseId} = ${course.id})`,
     })
     .from(course)
     .leftJoin(courseVersion, eq(courseVersion.id, course.publishedVersionId))
-    .leftJoin(courseDraft, eq(courseDraft.courseId, course.id))
     .orderBy(desc(course.updatedAt));
-  return rows.map((r) => ({
-    id: r.id,
-    title: r.title,
-    status: r.status,
-    isDemo: r.isDemo,
-    kind: r.kind,
-    latestVersion: r.latestVersion ?? null,
-    learners: r.learners,
-    draftUpdatedAt: r.draftUpdatedAt ?? null,
-    unpublishedChanges: !!r.draftContent && contentHash(r.draftContent) !== r.publishedHash,
-  }));
-}
-
-function starterContent(id: string, title: string): CourseInput {
-  return {
-    schema: "mozes-course",
-    schemaVersion: 1,
-    id,
-    title,
-    locale: "he",
-    settings: { navigation: "linear", completion: { requireAllRequiredScreens: true, passingScore: null } },
-    units: [
-      {
-        id: rid("u"),
-        title: "יחידה 1",
-        screens: [
-          {
-            id: rid("s"),
-            title: "פתיחה",
-            template: "text",
-            slots: {
-              body: [
-                { id: rid("c"), type: "heading", text: title, level: 1 },
-                { id: rid("c"), type: "richText", body: [{ kind: "paragraph", content: [{ text: "כתבו כאן את פתיח הקורס." }] }] },
-              ],
-            },
-          },
-        ],
-      },
-    ],
-  };
+  const chapters = new Map((await chaptersByIds([...new Set(rows.flatMap((r) => r.chapterIds ?? []))])).map((c) => [c.id, c]));
+  return rows.map((r) => {
+    const latest = r.chapterIds ? Math.max(r.updatedAt.getTime(), ...r.chapterIds.map((id) => chapters.get(id)?.updatedAt.getTime() ?? 0)) : r.updatedAt.getTime();
+    return {
+      id: r.id,
+      title: r.title,
+      status: r.status,
+      isDemo: r.isDemo,
+      kind: r.kind,
+      latestVersion: r.latestVersion ?? null,
+      learners: r.learners,
+      chapters: r.chapterIds?.length ?? 0,
+      certificateEnabled: r.certificateEnabled,
+      updatedAt: new Date(latest),
+      unpublishedChanges: r.kind === "native" && !!r.chapterIds && !!r.publishedHash && composedHash(composeWith(r, chapters)) !== r.publishedHash,
+    };
+  });
 }
 
 export async function createCourse(actorId: string, title: string): Promise<string> {
   const id = rid("c");
-  const content = Course.parse(starterContent(id, title));
   await db.transaction(async (tx) => {
-    await tx.insert(course).values({ id, slug: id, title, status: "draft", createdBy: actorId });
-    await tx.insert(courseDraft).values({ courseId: id, content, revision: 1, updatedBy: actorId });
+    await tx.insert(course).values({ id, slug: id, title, status: "draft", chapterIds: [], createdBy: actorId });
     await tx.insert(auditLog).values({ actorId, action: "course.create", entity: "course", entityId: id, details: { title } });
   });
   return id;
 }
 
-export interface EditorData {
-  id: string;
-  status: "draft" | "published" | "archived";
-  isDemo: boolean;
-  content: Course;
-  revision: number;
-  publishedHash: string | null;
-  latestVersion: number | null;
+/**
+ * Courses created before the chapter bank kept one document per course. On first open, each of its
+ * units becomes a bank chapter and the course points at them. Idempotent and race-safe.
+ */
+async function ensureChapters(courseId: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [c] = await tx.select().from(course).where(eq(course.id, courseId)).for("update");
+    if (!c || c.kind !== "native" || c.chapterIds) return;
+    const [draft] = await tx.select().from(courseDraft).where(eq(courseDraft.courseId, courseId));
+    const [published] = c.publishedVersionId ? await tx.select().from(courseVersion).where(eq(courseVersion.id, c.publishedVersionId)) : [];
+    const source = draft?.content ?? published?.content;
+    if (!source) {
+      await tx.update(course).set({ chapterIds: [] }).where(eq(course.id, courseId));
+      return;
+    }
+    const doc = Course.parse(source);
+    const ids = await chaptersFromLegacy(tx, c.createdBy, doc);
+    await tx.update(course).set({ chapterIds: ids, passingScore: doc.settings.completion.passingScore }).where(eq(course.id, courseId));
+    await tx.insert(auditLog).values({ action: "course.migrate_to_chapters", entity: "course", entityId: courseId, details: { chapters: ids } });
+  });
 }
 
-export async function getEditorData(courseId: string): Promise<EditorData | null> {
-  const [row] = await db
-    .select({ c: course, d: courseDraft, v: courseVersion })
-    .from(course)
-    .leftJoin(courseDraft, eq(courseDraft.courseId, course.id))
-    .leftJoin(courseVersion, eq(courseVersion.id, course.publishedVersionId))
-    .where(eq(course.id, courseId));
-  if (!row) return null;
+export interface BuilderChapter {
+  id: string;
+  title: string;
+  kind: "lesson" | "exam";
+  screens: number;
+  questions: number;
+  medicalScreens: number;
+  updatedAt: string;
+}
 
-  let content = row.d?.content;
-  let revision = row.d?.revision ?? 1;
-  if (!content) {
-    // A course published before drafts existed (e.g. the demo): start the draft from its live version.
-    if (!row.v) return null;
-    content = row.v.content;
-    await db.insert(courseDraft).values({ courseId, content, revision: 1 }).onConflictDoNothing();
-    revision = 1;
-  }
+export interface BuilderData {
+  id: string;
+  title: string;
+  status: "draft" | "published" | "archived";
+  isDemo: boolean;
+  revision: number;
+  certificateEnabled: boolean;
+  passingScore: number | null;
+  chapters: BuilderChapter[];
+  /** Ids in chapter_ids that no longer exist in the bank. */
+  missing: number;
+  composed: CourseInput;
+  latestVersion: number | null;
+  publishedAt: string | null;
+  unpublishedChanges: boolean;
+}
+
+export async function getCourseBuilder(courseId: string): Promise<BuilderData | null> {
+  await ensureChapters(courseId);
+  const [row] = await db
+    .select({ c: course, v: courseVersion })
+    .from(course)
+    .leftJoin(courseVersion, eq(courseVersion.id, course.publishedVersionId))
+    .where(and(eq(course.id, courseId), eq(course.kind, "native")));
+  if (!row) return null;
+  const ids = row.c.chapterIds ?? [];
+  const list = await chaptersByIds(ids);
+  const composed = composeWith(row.c, new Map(list.map((c) => [c.id, c])));
   return {
-    id: courseId,
+    id: row.c.id,
+    title: row.c.title,
     status: row.c.status,
     isDemo: row.c.isDemo,
-    content: Course.parse(content),
-    revision,
-    publishedHash: row.v?.contentHash ?? null,
+    revision: row.c.builderRevision,
+    certificateEnabled: row.c.certificateEnabled,
+    passingScore: row.c.passingScore,
+    chapters: list.map((c) => {
+      const screens = c.doc.units[0]?.screens ?? [];
+      return {
+        id: c.id,
+        title: c.title,
+        kind: c.kind,
+        screens: screens.length,
+        questions: screens.flatMap((s) => Object.values(s.slots).flat()).filter(isQuestion).length,
+        medicalScreens: screens.filter((s) => s.medical.relevant).length,
+        updatedAt: c.updatedAt.toISOString(),
+      };
+    }),
+    missing: ids.length - list.length,
+    composed,
     latestVersion: row.v?.versionNo ?? null,
+    publishedAt: row.v?.publishedAt?.toISOString() ?? null,
+    unpublishedChanges: !!row.v && composedHash(composed) !== row.v.contentHash,
   };
 }
 
-export type SaveResult = { ok: true; revision: number } | { ok: false; reason: "not_found" | "conflict" | "invalid"; revision?: number; message?: string };
+export const CourseUpdate = z
+  .object({
+    baseRevision: z.number().int().min(1),
+    title: z.string().trim().min(2, "שם הקורס קצר מדי").max(160).optional(),
+    chapterIds: z.array(z.string().regex(/^[A-Za-z0-9_-]{1,64}$/)).max(50).optional(),
+    certificateEnabled: z.boolean().optional(),
+    passingScore: z.number().int().min(1, "ציון עובר בין 1 ל-100").max(100, "ציון עובר בין 1 ל-100").nullable().optional(),
+  })
+  .strict();
+export type CourseUpdate = z.infer<typeof CourseUpdate>;
 
-/** Saves the working draft. Structural schema only — completeness is checked at publish time. */
-export async function saveDraft(courseId: string, actorId: string, input: unknown, baseRevision: number): Promise<SaveResult> {
-  const parsed = Course.safeParse(input);
-  if (!parsed.success) return { ok: false, reason: "invalid", message: parsed.error.issues[0]?.message };
-  if (parsed.data.id !== courseId) return { ok: false, reason: "invalid", message: "מזהה הקורס אינו תואם" };
+export type UpdateResult = { ok: true; revision: number } | { ok: false; reason: "not_found" | "conflict" | "invalid"; message?: string; revision?: number };
 
+export async function updateCourse(courseId: string, actorId: string, u: CourseUpdate): Promise<UpdateResult> {
+  if (u.chapterIds) {
+    if (new Set(u.chapterIds).size !== u.chapterIds.length) return { ok: false, reason: "invalid", message: "אותו פרק לא יכול להופיע פעמיים באותו קורס." };
+    const found = await chaptersByIds(u.chapterIds);
+    if (found.length !== u.chapterIds.length) return { ok: false, reason: "invalid", message: "אחד הפרקים לא נמצא במאגר." };
+  }
   return db.transaction(async (tx) => {
-    const [draft] = await tx.select().from(courseDraft).where(eq(courseDraft.courseId, courseId)).for("update");
-    if (!draft) return { ok: false, reason: "not_found" } as const;
-    if (draft.revision !== baseRevision) return { ok: false, reason: "conflict", revision: draft.revision } as const;
-    const revision = draft.revision + 1;
-    await tx.update(courseDraft).set({ content: parsed.data, revision, updatedBy: actorId, updatedAt: new Date() }).where(eq(courseDraft.courseId, courseId));
-    await tx.update(course).set({ title: parsed.data.title }).where(eq(course.id, courseId));
+    const [c] = await tx.select().from(course).where(eq(course.id, courseId)).for("update");
+    if (!c) return { ok: false, reason: "not_found" } as const;
+    if (c.kind === "package" && (u.chapterIds !== undefined || u.passingScore !== undefined)) {
+      return { ok: false, reason: "invalid", message: "בלומדה מיובאת הציון נקבע בתוך הלומדה עצמה." } as const;
+    }
+    if (c.builderRevision !== u.baseRevision) return { ok: false, reason: "conflict", revision: c.builderRevision } as const;
+    const revision = c.builderRevision + 1;
+    await tx
+      .update(course)
+      .set({
+        builderRevision: revision,
+        ...(u.title !== undefined && { title: u.title }),
+        ...(u.chapterIds !== undefined && { chapterIds: u.chapterIds }),
+        ...(u.certificateEnabled !== undefined && { certificateEnabled: u.certificateEnabled }),
+        ...(u.passingScore !== undefined && { passingScore: u.passingScore }),
+      })
+      .where(eq(course.id, courseId));
+    if (u.certificateEnabled !== undefined || u.passingScore !== undefined) {
+      await tx.insert(auditLog).values({ actorId, action: "course.settings", entity: "course", entityId: courseId, details: { certificateEnabled: u.certificateEnabled, passingScore: u.passingScore } });
+    }
     return { ok: true, revision } as const;
   });
 }
@@ -159,11 +229,20 @@ export async function publishCourse(courseId: string, actorId: string, medicalCo
   const [kindRow] = await db.select({ kind: course.kind, packageId: course.packageId }).from(course).where(eq(course.id, courseId));
   if (!kindRow) return { ok: false, reason: "not_found" };
   if (kindRow.kind === "package") return publishPackageCourse(courseId, actorId, kindRow.packageId);
+  await ensureChapters(courseId);
   return db.transaction(async (tx) => {
-    const [draft] = await tx.select().from(courseDraft).where(eq(courseDraft.courseId, courseId)).for("update");
-    if (!draft) return { ok: false, reason: "not_found" } as const;
+    const [c] = await tx.select().from(course).where(eq(course.id, courseId)).for("update");
+    if (!c) return { ok: false, reason: "not_found" } as const;
+    const ids = c.chapterIds ?? [];
+    if (!ids.length) return { ok: false, reason: "invalid", errors: ["אין פרקים בקורס. הוסיפו לפחות פרק אחד."] } as const;
+    const list = await chaptersByIds(ids);
+    if (list.length !== ids.length) return { ok: false, reason: "invalid", errors: ["אחד הפרקים בקורס נמחק מהמאגר."] } as const;
+    const hasExam = list.some((ch) => ch.kind === "exam");
+    if (c.certificateEnabled && hasExam && c.passingScore === null) {
+      return { ok: false, reason: "invalid", errors: ["בקורס עם מבחן ותעודה יש לקבוע ציון עובר."] } as const;
+    }
 
-    const result = validateCourse(draft.content);
+    const result = validateCourse(composeWith(c, new Map(list.map((x) => [x.id, x]))));
     if (!result.ok || !result.course) {
       return { ok: false, reason: "invalid", errors: result.issues.filter((i) => i.severity === "error").map((i) => i.message) } as const;
     }
@@ -171,27 +250,20 @@ export async function publishCourse(courseId: string, actorId: string, medicalCo
     if (medical.length && !medicalConfirmed) return { ok: false, reason: "medical_unconfirmed" } as const;
 
     const hash = contentHash(result.course);
-    const [latest] = await tx
-      .select()
-      .from(courseVersion)
-      .where(eq(courseVersion.courseId, courseId))
-      .orderBy(desc(courseVersion.versionNo))
-      .limit(1);
+    const [latest] = await tx.select().from(courseVersion).where(eq(courseVersion.courseId, courseId)).orderBy(desc(courseVersion.versionNo)).limit(1);
     if (latest?.contentHash === hash) return { ok: false, reason: "unchanged" } as const;
 
     const versionNo = (latest?.versionNo ?? 0) + 1;
     const versionId = randomUUID();
     await tx.insert(courseVersion).values({ id: versionId, courseId, versionNo, content: result.course, contentHash: hash, publishedBy: actorId });
-    await tx.update(course).set({ status: "published", publishedVersionId: versionId, title: result.course.title }).where(eq(course.id, courseId));
+    await tx.update(course).set({ status: "published", publishedVersionId: versionId }).where(eq(course.id, courseId));
     await tx.insert(auditLog).values({
       actorId,
       action: "course.publish",
       entity: "course",
       entityId: courseId,
-      details: { versionNo, medicalScreens: medical.map((m) => m.screen.id), medicalConfirmedByPublisher: medical.length > 0 },
+      details: { versionNo, chapters: ids, medicalScreens: medical.map((m) => m.screen.id), medicalConfirmedByPublisher: medical.length > 0 },
     });
-    // Keep the draft byte-identical to what was published so "unpublished changes" is accurate.
-    await tx.update(courseDraft).set({ content: result.course }).where(eq(courseDraft.courseId, courseId));
     return { ok: true, versionNo } as const;
   });
 }
