@@ -28,6 +28,8 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
+  /** Disabled accounts cannot sign in; their sessions are revoked. */
+  disabled: boolean("disabled").notNull().default(false),
   ...timestamps,
 });
 
@@ -283,3 +285,30 @@ export const coursePackage = pgTable("course_package", {
   createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/* ───────────── Certificates ───────────── */
+
+/** Issued once per successful enrollment; details are snapshotted so they never change later. */
+export const certificate = pgTable(
+  "certificate",
+  {
+    id: text("id").primaryKey(),
+    /** Public verification code (unguessable). */
+    code: text("code").notNull().unique(),
+    enrollmentId: text("enrollment_id")
+      .notNull()
+      .unique()
+      .references(() => enrollment.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    courseId: text("course_id")
+      .notNull()
+      .references(() => course.id, { onDelete: "cascade" }),
+    learnerName: text("learner_name").notNull(),
+    courseTitle: text("course_title").notNull(),
+    scorePercent: integer("score_percent"),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("certificate_user_idx").on(t.userId)],
+);

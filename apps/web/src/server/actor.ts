@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
 import { type Actor, isOrgRole, isPlatformRole } from "@mozes/authz";
 import { db } from "@/db";
-import { membership, userPlatformRole } from "@/db/schema";
+import { membership, user, userPlatformRole } from "@/db/schema";
 import { auth } from "@/lib/auth";
 
 export interface CurrentUser {
@@ -22,10 +22,14 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!session) return null;
   const userId = session.user.id;
 
-  const [roles, memberships] = await Promise.all([
+  const [[account], roles, memberships] = await Promise.all([
+    db.select({ disabled: user.disabled }).from(user).where(eq(user.id, userId)),
     db.select({ role: userPlatformRole.role }).from(userPlatformRole).where(eq(userPlatformRole.userId, userId)),
     db.select({ orgId: membership.orgId, role: membership.role }).from(membership).where(eq(membership.userId, userId)),
   ]);
+
+  // A disabled account is treated as signed out everywhere, even with a live session cookie.
+  if (!account || account.disabled) return null;
 
   const orgRoles: Actor["orgRoles"] = {};
   for (const m of memberships) if (isOrgRole(m.role)) (orgRoles as Record<string, string>)[m.orgId] = m.role;

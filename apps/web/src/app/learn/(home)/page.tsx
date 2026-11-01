@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUser } from "@/server/actor";
+import { ensureCertificates, listMyCertificates } from "@/server/certificates";
 import { listMyCourses, type MyCourse } from "@/server/learning";
 
 export const metadata: Metadata = { title: "הקורסים שלי" };
@@ -36,11 +37,12 @@ function Cover({ c }: { c: MyCourse }) {
 
 export default async function MyCourses() {
   const user = await getCurrentUser();
-  const courses = user ? await listMyCourses(user.actor.userId) : [];
+  if (user) await ensureCertificates(user.actor.userId);
+  const [courses, certs] = user ? await Promise.all([listMyCourses(user.actor.userId), listMyCertificates(user.actor.userId)]) : [[], []];
   const firstName = user?.name.trim().split(/\s+/)[0] ?? "";
   const current = courses.find((c) => c.status === "in_progress");
   const done = courses.filter((c) => ["completed", "passed"].includes(c.status));
-  const certificates = done.filter((c) => !c.isDemo).length;
+  const certificates = certs.length;
 
   return (
     <div className="academy-stack">
@@ -110,11 +112,18 @@ export default async function MyCourses() {
 
       <section aria-labelledby="certs" className="academy-section">
         <h2 id="certs" className="section-title">תעודות</h2>
-        <p className="muted">
-          {certificates > 0
-            ? "הנפקת תעודות סיום תתווסף בשלב הבא; ההישגים שלך כבר נשמרים."
-            : "תעודה מונפקת בסיום מוצלח של קורס מוסמך. קורסי הדגמה אינם מזכים בתעודה."}
-        </p>
+        {certs.length ? (
+          <ul className="cert-list">
+            {certs.map((c) => (
+              <li key={c.id}>
+                <span className="cert-list-title">{c.courseTitle}</span>
+                <a className="btn btn-quiet btn-sm" href={`/certificates/${c.code}`}>צפייה בתעודה</a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">תעודה מונפקת אוטומטית בסיום מוצלח של קורס. קורסי הדגמה אינם מזכים בתעודה.</p>
+        )}
       </section>
     </div>
   );

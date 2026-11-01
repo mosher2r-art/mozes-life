@@ -1,0 +1,50 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { can, ROLE_LABELS_HE } from "@mozes/authz";
+import { OrgEnrollForm, OrgMemberForm, RemoveMemberButton } from "@/components/admin/forms";
+import { Forbidden } from "@/components/Forbidden";
+import { getCurrentUser } from "@/server/actor";
+import { getOrg, ORG_TYPE_LABEL, publishedCourses } from "@/server/admin-users";
+
+export const metadata: Metadata = { title: "ארגון" };
+export const dynamic = "force-dynamic";
+
+export default async function OrgPage({ params }: { params: Promise<{ id: string }> }) {
+  const me = await getCurrentUser();
+  if (!can(me?.actor, "org.manage")) return <Forbidden />;
+  const { id } = await params;
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) notFound();
+  const data = await getOrg(id);
+  if (!data) notFound();
+  const courses = await publishedCourses();
+  return (
+    <div className="page">
+      <header className="page-head">
+        <Link href="/studio/orgs" className="ed-back">→ ארגונים</Link>
+        <p className="kicker">{ORG_TYPE_LABEL[data.org.type]}</p>
+        <h1 className="page-title">{data.org.name}</h1>
+      </header>
+      <div className="split-even">
+        <OrgMemberForm orgId={id} />
+        <OrgEnrollForm orgId={id} courses={courses} />
+      </div>
+      <div className="table-wrap">
+        <table className="table">
+          <thead><tr><th scope="col">שם</th><th scope="col">אימייל</th><th scope="col">תפקיד</th><th scope="col"><span className="visually-hidden">פעולות</span></th></tr></thead>
+          <tbody>
+            {data.members.map((m) => (
+              <tr key={m.id}>
+                <th scope="row"><Link className="table-title" href={`/studio/users/${m.id}`}>{m.name}</Link>{m.disabled && <span className="chip chip-fail">מושבת</span>}</th>
+                <td dir="ltr" className="muted">{m.email}</td>
+                <td>{ROLE_LABELS_HE[m.role]}</td>
+                <td className="table-actions"><RemoveMemberButton orgId={id} userId={m.id} name={m.name} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {data.members.length === 0 && <p className="muted">אין עדיין חברים בארגון.</p>}
+    </div>
+  );
+}

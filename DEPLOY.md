@@ -67,6 +67,28 @@
 
 > כתובת `r2.dev` מתאימה לבדיקות. לפני השקה מחברים ל-bucket דומיין משלכם (Custom Domain) ומעדכנים את `R2_PUBLIC_BASE_URL`.
 
+## חלופה בלי כרטיס אשראי — Supabase Storage
+
+אפשר להשתמש ב-Supabase Storage במקום R2. **בלי כרטיס אשראי**, אבל עם מגבלות בתוכנית החינמית: 1GB אחסון, עד 50MB לכל קובץ, ו-10GB תעבורה בחודש.
+
+1. ב-Supabase פותחים את הפרויקט ← **Storage** ← **New bucket** ← שם: `mozes-life-media` ← מסמנים **Public bucket** ← **Save**.
+2. **Storage** ← **Settings** (או Configuration ← S3) ← מפעילים **S3 connection / S3 protocol**.
+3. באותו מסך: **New access key** ← מעתיקים **Access key ID** ו-**Secret access key**. מעתיקים גם את **Endpoint** ואת **Region**.
+4. ב-Render ← **Environment** ← מוסיפים:
+
+| KEY | VALUE |
+|---|---|
+| `S3_ENDPOINT` | ה-Endpoint, בצורה `https://<project>.supabase.co/storage/v1/s3` |
+| `S3_REGION` | ה-Region (למשל `us-east-2`) |
+| `S3_ACCESS_KEY_ID` | ה-Access key ID |
+| `S3_SECRET_ACCESS_KEY` | ה-Secret access key |
+| `S3_BUCKET` | `mozes-life-media` |
+| `S3_PUBLIC_BASE_URL` | `https://<project>.supabase.co/storage/v1/object/public/mozes-life-media` |
+
+5. **Save, rebuild, and deploy**.
+
+> לא נבדק עדיין מול Supabase אמיתי. ייתכן ש-Supabase מגיש קובצי HTML כטקסט, ואז **ייבוא לומדות** לא יעבוד ממנו (סרטונים ותמונות כן). זה ייבדק בחיבור הראשון.
+
 ## עדכונים
 כל שינוי שנכנס לגרסה הראשית ב-GitHub מתעדכן באתר אוטומטית.
 

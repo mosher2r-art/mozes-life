@@ -3,8 +3,13 @@ import type { NextConfig } from "next";
 const isDev = process.env.NODE_ENV !== "production";
 
 // Media storage origins (Cloudflare R2): public files + direct signed uploads from the browser.
-const mediaPublic = process.env.R2_PUBLIC_BASE_URL ? new URL(process.env.R2_PUBLIC_BASE_URL).origin : "";
-const mediaUpload = process.env.R2_ACCOUNT_ID ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : "";
+const publicBase = process.env.R2_PUBLIC_BASE_URL || process.env.S3_PUBLIC_BASE_URL;
+const mediaPublic = publicBase ? new URL(publicBase).origin : "";
+const mediaUpload = process.env.R2_ACCOUNT_ID
+  ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+  : process.env.S3_ENDPOINT
+    ? new URL(process.env.S3_ENDPOINT).origin
+    : "";
 // Imported courseware runs in a sandboxed iframe on a separate origin (R2 public domain, or PACKAGE_ORIGIN locally).
 const packageOrigin = process.env.PACKAGE_ORIGIN ? new URL(process.env.PACKAGE_ORIGIN).origin : mediaPublic;
 

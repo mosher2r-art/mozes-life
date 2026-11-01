@@ -96,6 +96,21 @@ test("import a SCORM 1.2 package, preview it in isolation, publish, and record t
   await expect(card.getByText("עבר בהצלחה")).toBeVisible();
   await expect(card.getByText("90%", { exact: true })).toBeVisible();
 
+  // A certificate is issued for the passed (non-demo) course and verifiable without signing in
+  await lp.getByRole("link", { name: "צפייה בתעודה" }).click();
+  await expect(lp.getByRole("heading", { name: USERS.learner.name })).toBeVisible();
+  await expect(lp.getByText("לומדת SCORM לדוגמה")).toBeVisible();
+  await expect(lp.getByText("90%")).toBeVisible();
+  const certUrl = lp.url();
+  expect(certUrl).toMatch(/\/certificates\/ML-[A-Z0-9]{10}$/);
+  const anonCert = await browser.newContext();
+  const ap = await anonCert.newPage();
+  await ap.goto(certUrl);
+  await expect(ap.getByRole("heading", { name: USERS.learner.name })).toBeVisible();
+  expect((await ap.goto(certUrl.replace(/ML-[A-Z0-9]{10}$/, "ML-AAAAAAAAAA")))?.status()).toBe(404);
+  await anonCert.close();
+  await lp.goto("/learn");
+
   // Resume: saved suspend_data is handed back to the courseware
   await card.getByRole("link").click();
   await expect(lp.frameLocator("iframe.pkg-frame").frameLocator("#sco").locator("#h")).toHaveAttribute("data-resume", "page=3", { timeout: 15_000 });

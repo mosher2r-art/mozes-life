@@ -11,9 +11,10 @@ export const dynamic = "force-dynamic";
 const ROADMAP: { phase: string; name: string; status: "done" | "next" | "planned" }[] = [
   { phase: "0", name: "תשתית, התחברות והרשאות", status: "done" },
   { phase: "1", name: "מנוע תוכן, בדיקת תקינות ונגן", status: "done" },
-  { phase: "2", name: "עורך הלומדות וניהול קורסים", status: "next" },
-  { phase: "3", name: "מרכז ייבוא לומדות", status: "planned" },
-  { phase: "4", name: "לומדים, ארגונים, רישיונות ותעודות", status: "planned" },
+  { phase: "2", name: "עורך הלומדות, ניהול קורסים וספריית מדיה", status: "done" },
+  { phase: "3", name: "מרכז ייבוא לומדות (SCORM / HTML5)", status: "done" },
+  { phase: "4", name: "משתמשים, ארגונים ותעודות", status: "done" },
+  { phase: "5", name: "הזמנות במייל, רישיונות ודוחות", status: "next" },
 ];
 const STATUS = { done: "הושלם", next: "השלב הבא", planned: "מתוכנן" } as const;
 
@@ -82,7 +83,7 @@ export default async function StudioDashboard() {
         <section className="block block-feature" aria-labelledby="try">
           <p className="kicker kicker-green">זמין עכשיו</p>
           <h2 id="try">הדגמת הנגן</h2>
-          <p className="muted">כל תשע תבניות המסך, שאלות, תרחיש עם הסתעפות ובדיקת תקינות — כפי שהלומדים יראו אותם, בתצוגת נייד ומחשב.</p>
+          <p className="muted">כל תבניות המסך, שאלות, תרחיש עם הסתעפות ובדיקת תקינות — כפי שהלומדים יראו אותם, בתצוגת נייד ומחשב.</p>
           <Link href="/studio/preview/demo" className="btn btn-dark">
             פתיחת ההדגמה
           </Link>

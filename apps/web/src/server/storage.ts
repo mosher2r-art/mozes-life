@@ -18,9 +18,7 @@ export type Driver = "r2" | "local" | "none";
 
 export function driver(): Driver {
   if (process.env.MEDIA_DRIVER === "local") return "local";
-  const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_BASE_URL } = process.env;
-  if (R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY && R2_BUCKET && R2_PUBLIC_BASE_URL) return "r2";
-  return "none";
+  return s3Config() ? "r2" : "none";
 }
 
 // Development/test only; the comment stops the bundler from tracing the whole project.
@@ -30,11 +28,36 @@ const safeKey = (key: string) => {
   return key;
 };
 
+interface S3Config {
+  endpoint: string;
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  bucket: string;
+  publicBase: string;
+}
+
+/**
+ * Any S3-compatible object storage. Cloudflare R2 (R2_* variables) or a generic provider such
+ * as Supabase Storage (S3_* variables: endpoint like https://<ref>.supabase.co/storage/v1/s3,
+ * public base like https://<ref>.supabase.co/storage/v1/object/public/<bucket>).
+ */
+export function s3Config(): S3Config | null {
+  const e = process.env;
+  if (e.R2_ACCOUNT_ID && e.R2_ACCESS_KEY_ID && e.R2_SECRET_ACCESS_KEY && e.R2_BUCKET && e.R2_PUBLIC_BASE_URL) {
+    return { endpoint: `https://${e.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`, region: "auto", accessKeyId: e.R2_ACCESS_KEY_ID, secretAccessKey: e.R2_SECRET_ACCESS_KEY, bucket: e.R2_BUCKET, publicBase: e.R2_PUBLIC_BASE_URL };
+  }
+  if (e.S3_ENDPOINT && e.S3_ACCESS_KEY_ID && e.S3_SECRET_ACCESS_KEY && e.S3_BUCKET && e.S3_PUBLIC_BASE_URL) {
+    return { endpoint: e.S3_ENDPOINT, region: e.S3_REGION || "auto", accessKeyId: e.S3_ACCESS_KEY_ID, secretAccessKey: e.S3_SECRET_ACCESS_KEY, bucket: e.S3_BUCKET, publicBase: e.S3_PUBLIC_BASE_URL };
+  }
+  return null;
+}
+
 function r2() {
-  const env = process.env;
-  const client = new AwsClient({ accessKeyId: env.R2_ACCESS_KEY_ID!, secretAccessKey: env.R2_SECRET_ACCESS_KEY!, service: "s3", region: "auto" });
-  const objectUrl = (key: string) => `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${env.R2_BUCKET}/${safeKey(key)}`;
-  return { client, objectUrl, publicBase: env.R2_PUBLIC_BASE_URL!.replace(/\/+$/, "") };
+  const c = s3Config()!;
+  const client = new AwsClient({ accessKeyId: c.accessKeyId, secretAccessKey: c.secretAccessKey, service: "s3", region: c.region });
+  const objectUrl = (key: string) => `${c.endpoint.replace(/\/+$/, "")}/${c.bucket}/${safeKey(key)}`;
+  return { client, objectUrl, publicBase: c.publicBase.replace(/\/+$/, "") };
 }
 
 export interface UploadTarget {

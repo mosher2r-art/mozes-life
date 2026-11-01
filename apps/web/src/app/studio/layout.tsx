@@ -15,6 +15,8 @@ const NAV = [
   { href: "/studio/courses", label: "קורסים", icon: "book" },
   { href: "/studio/media", label: "ספריית מדיה", icon: "media" },
   { href: "/studio/import", label: "ייבוא לומדה", icon: "import" },
+  { href: "/studio/users", label: "משתמשים", icon: "users", action: "users.manage_platform" },
+  { href: "/studio/orgs", label: "ארגונים", icon: "org", action: "org.manage" },
   { href: "/studio/preview/demo", label: "הדגמת נגן", icon: "play" },
 ] as const;
 
@@ -38,7 +40,7 @@ export default async function StudioLayout({ children }: { children: React.React
           </span>
           <span className="studio-product">STUDIO</span>
         </div>
-        <StudioNav items={NAV} />
+        <StudioNav items={NAV.filter((n) => !("action" in n) || can(user.actor, n.action))} />
         <div className="studio-user">
           <span className="avatar" aria-hidden="true">{initials}</span>
           <span className="studio-user-text">
