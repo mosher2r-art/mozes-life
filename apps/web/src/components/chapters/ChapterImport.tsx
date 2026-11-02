@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export interface ImportedChapterView {
   id: string;
@@ -79,7 +80,7 @@ export function ChapterImport({ onImported, compact = false }: { onImported?: (c
             r.ok ? (
               <li key={i}>
                 <strong>{r.file}</strong>: יובאו {r.chapters!.length === 1 ? "פרק אחד" : `${r.chapters!.length} פרקים`}{" "}
-                ({r.chapters!.map((c) => `${c.title}${c.kind === "exam" ? " · מבחן" : ""}`).join(", ")})
+                ({r.chapters!.map((c, index) => <span key={c.id}>{index > 0 && ", "}<Link href={`/studio/chapters/${c.id}`} prefetch={false}>{c.title}</Link>{c.kind === "exam" ? " · מבחן" : ""}</span>)})
                 {r.chapters!.some((c) => c.missingMedia > 0) && <> · שימו לב: יש קבצי מדיה שלא נמצאו בספרייה. הוסיפו אותם בעורך הפרק.</>}
               </li>
             ) : (
