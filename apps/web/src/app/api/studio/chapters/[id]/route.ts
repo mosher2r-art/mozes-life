@@ -12,7 +12,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
   const { id } = await ctx.params;
   if (!ID_RE.test(id)) return json({ error: "not_found" }, 404);
   const raw = await req.text();
-  if (raw.length > 2_000_000) return json({ error: "too_large" }, 413);
+  if (Buffer.byteLength(raw, "utf8") > 6_000_000) return json({ error: "too_large" }, 413);
   let body: unknown;
   try {
     body = JSON.parse(raw);
