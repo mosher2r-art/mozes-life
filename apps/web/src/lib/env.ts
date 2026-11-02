@@ -18,6 +18,16 @@ function load() {
     const issues = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n");
     throw new Error(`Invalid environment configuration:\n${issues}`);
   }
+  if (process.env.DEPLOY_TARGET === "cloudflare") {
+    const url = new URL(parsed.data.DATABASE_URL);
+    const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+    if (!local && url.searchParams.get("sslmode") !== "verify-full") {
+      throw new Error("Cloudflare DATABASE_URL requires sslmode=verify-full");
+    }
+    if (!local && !parsed.data.BETTER_AUTH_URL.startsWith("https://")) {
+      throw new Error("Cloudflare BETTER_AUTH_URL requires HTTPS");
+    }
+  }
   return parsed.data;
 }
 

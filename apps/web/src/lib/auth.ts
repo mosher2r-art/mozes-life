@@ -18,6 +18,7 @@ export const auth = betterAuth({
       session: schema.session,
       account: schema.account,
       verification: schema.verification,
+      rateLimit: schema.rateLimit,
     },
   }),
   emailAndPassword: {
@@ -32,12 +33,14 @@ export const auth = betterAuth({
     updateAge: 60 * 60 * 24, // refresh daily
   },
   rateLimit: {
+    storage: "database",
     enabled: env().NODE_ENV !== "test",
     window: 60,
     max: 100,
     customRules: { "/sign-in/email": { window: 60, max: env().AUTH_SIGNIN_RATE_LIMIT_PER_MIN } },
   },
   advanced: {
+    ...(process.env.DEPLOY_TARGET === "cloudflare" ? { ipAddress: { ipAddressHeaders: ["cf-connecting-ip"] } } : {}),
     // Secure cookies whenever the site is served over HTTPS.
     useSecureCookies: env().BETTER_AUTH_URL.startsWith("https://"),
   },
