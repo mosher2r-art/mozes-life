@@ -19,6 +19,7 @@ import {
   screenComponents,
 } from "@mozes/content-schema";
 import { grade, type Response } from "./grading";
+import { sceneProgress, sceneMatchesComplete, sceneIsComplete, type SceneProgress } from "./interactive";
 
 export interface QuestionState {
   attempts: number;
@@ -41,10 +42,14 @@ export interface PlayerState {
   questions: Record<string, QuestionState>;
   /** componentId → highest percentage watched/listened. */
   media: Record<string, number>;
+  /** Optional for backward compatibility with existing v1 saved progress. */
+  scenes?: Record<string, SceneProgress>;
   finished: boolean;
 }
 
 export type PlayerEvent =
+  | { type: "scene_advance"; componentId: string }
+  | { type: "scene_drop"; componentId: string; objectId: string; targetId: string }
   | { type: "answer"; componentId: string; response: Response }
   | { type: "media_progress"; componentId: string; percent: number }
   | { type: "continue" }
@@ -121,6 +126,7 @@ export function reconcile(course: Course, saved: PlayerState): PlayerState {
     visited: visited.includes(current) ? visited : [...visited, current],
     questions: keep(saved.questions),
     media: keep(saved.media),
+    ...(saved.scenes ? { scenes: Object.fromEntries(flat.flatMap(r => screenComponents(r.screen)).flatMap(c => c.type === "interactiveScene" && saved.scenes?.[c.id] ? [[c.id, sceneProgress(c.scene, saved.scenes[c.id])]] : [])) } : {}),
     finished: saved.finished && byId.has(saved.currentScreenId),
   };
 }
@@ -129,6 +135,7 @@ export function reconcile(course: Course, saved: PlayerState): PlayerState {
 
 export function isScreenComplete(screen: Screen, state: PlayerState): boolean {
   for (const c of screenComponents(screen)) {
+    if (c.type === "interactiveScene" && !sceneIsComplete(c.scene, sceneProgress(c.scene, state.scenes?.[c.id]))) return false;
     if (isQuestion(c) && !state.questions[c.id]?.resolved) return false;
     if (c.type === "video" && c.requiredWatchPercent > 0 && (state.media[c.id] ?? 0) < c.requiredWatchPercent) return false;
   }
@@ -187,6 +194,26 @@ function moveTo(course: Course, state: PlayerState, target: FlowTarget): PlayerS
 
 export function step(course: Course, state: PlayerState, event: PlayerEvent): PlayerState {
   switch (event.type) {
+    case "scene_advance":
+    case "scene_drop": {
+      if (state.finished) throw new EngineError("COURSE_FINISHED");
+      const c = findComponent(getScreen(course, state.currentScreenId), event.componentId);
+      if (!c || c.type !== "interactiveScene") throw new EngineError("UNKNOWN_COMPONENT", event.componentId);
+      const progress = sceneProgress(c.scene, state.scenes?.[c.id]);
+      if (event.type === "scene_drop") {
+        const target = c.scene.objects.find(o => o.id === event.targetId && o.kind === "drop");
+        const dragged = c.scene.objects.find(o => o.id === event.objectId && o.kind === "drag");
+        if (!target || target.kind !== "drop" || !dragged) throw new EngineError("UNKNOWN_COMPONENT");
+        if (target.accept !== dragged.id) return state;
+        if (progress.matches[target.id] === dragged.id) return state;
+        progress.matches[target.id] = dragged.id;
+        if (sceneMatchesComplete(c.scene, progress)) progress.step = Math.min(progress.step + 1, Math.max(0, c.scene.states.length - 1));
+      } else {
+        if (!sceneMatchesComplete(c.scene, progress)) throw new EngineError("SCREEN_INCOMPLETE");
+        progress.step = Math.min(progress.step + 1, Math.max(0, c.scene.states.length - 1));
+      }
+      return { ...state, scenes: { ...state.scenes, [c.id]: progress } };
+    }
     case "answer": {
       if (state.finished) throw new EngineError("COURSE_FINISHED");
       const screen = getScreen(course, state.currentScreenId);
