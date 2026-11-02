@@ -1,0 +1,9 @@
+{
+  "name": "mozes-life-media-development",
+  "main": "worker.ts",
+  "compatibility_date": "2026-11-02",
+  "vars": {
+    "SUPABASE_PUBLIC_BUCKET_URL": "https://PROJECT_REF.supabase.co/storage/v1/object/public/mozes-media",
+    "APP_ORIGIN": "https://mozes-life-development.YOUR_SUBDOMAIN.workers.dev"
+  }
+}
