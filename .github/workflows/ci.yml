@@ -58,3 +58,24 @@ jobs:
           BETTER_AUTH_URL: http://localhost:3000
           PACKAGE_ORIGIN: http://127.0.0.1:3100
           WRANGLER_SEND_METRICS: "false"
+      - name: Package the validated Worker build
+        run: |
+          python3 - <<'PYZIP'
+          from pathlib import Path
+          import zipfile
+          output = Path('release')
+          output.mkdir(exist_ok=True)
+          with zipfile.ZipFile(output / 'mozes-life-worker.zip', 'w', zipfile.ZIP_DEFLATED) as z:
+              for path in Path('apps/web/.open-next').rglob('*'):
+                  if path.is_file():
+                      z.write(path, str(path.relative_to('apps/web')))
+              z.write('apps/web/wrangler.jsonc', 'wrangler.jsonc')
+              z.write('supabase/fresh-install.sql', 'SUPABASE_DATABASE.sql')
+              z.write('INSTALL_HE.md', 'INSTALL_HE.md')
+          PYZIP
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mozes-life-worker-${{ github.sha }}
+          path: release/mozes-life-worker.zip
+          retention-days: 3
+          if-no-files-found: error
