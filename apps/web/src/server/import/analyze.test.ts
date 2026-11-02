@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { analyzeZip, extractZip, parseManifest } from "./analyze";
+import { analyzeZip, extractZip, parseManifest, LIMITS } from "./analyze";
 
 const dir = mkdtempSync(path.join(tmpdir(), "mozes-zip-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -23,7 +23,7 @@ with zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED) as z:
         info.external_attr = (0o120777 << 16)
         z.writestr(info, "/etc/passwd")
 `;
-  execFileSync("python3", ["-c", script, out, JSON.stringify({ files, symlink: opts.symlink })]);
+  execFileSync(process.env.PYTHON ?? (process.platform === "win32" ? "python" : "python3"), ["-c", script, out, JSON.stringify({ files, symlink: opts.symlink })]);
   return out;
 }
 
@@ -85,7 +85,7 @@ describe("analyzeZip", () => {
   it("rejects archives without a launch file and non-zip data", async () => {
     expect((await analyzeZip(zip("none.zip", { "readme.txt": "hi" }))).items.map((i) => i.code)).toContain("NO_LAUNCH");
     const notZip = path.join(dir, "not.zip");
-    execFileSync("python3", ["-c", "open(__import__('sys').argv[1],'w').write('hello')", notZip]);
+    execFileSync(process.env.PYTHON ?? (process.platform === "win32" ? "python" : "python3"), ["-c", "open(__import__('sys').argv[1],'w').write('hello')", notZip]);
     expect((await analyzeZip(notZip)).items.map((i) => i.code)).toContain("BAD_ZIP");
   });
 
@@ -99,4 +99,10 @@ describe("analyzeZip", () => {
     });
     expect(written.sort()).toEqual(["app.js", "imsmanifest.xml", "index.html"]);
   });
+  it("enforces Worker entry and expanded-byte budgets before extraction", async () => {
+    const file = zip("worker-limits.zip", { "index.html": "0123456789", "asset.js": "x" });
+    expect((await analyzeZip(file, { ...LIMITS, maxEntries: 1 })).items.map(i => i.code)).toContain("TOO_MANY_FILES");
+    expect((await analyzeZip(file, { ...LIMITS, maxTotalBytes: 5 })).items.map(i => i.code)).toContain("TOO_LARGE");
+  });
+
 });

@@ -193,10 +193,12 @@ export async function analyzeZip(file: string, limits = LIMITS): Promise<Analysi
   let total = 0;
   let scanned = 0;
   let fatal = false;
+  let entryCount = 0;
 
   try {
     await forEachEntry(file, async (zip, entry) => {
       const name = entry.fileName;
+      if (++entryCount > limits.maxEntries) throw new Error("too_many_entries");
       if (/\/$/.test(name)) return; // directory
       if (entries.length + skipped.length >= limits.maxEntries) {
         fatal = true;
@@ -265,7 +267,7 @@ export async function analyzeZip(file: string, limits = LIMITS): Promise<Analysi
     const msg = e instanceof Error ? e.message : String(e);
     fatal = true;
     if (msg === "too_many_entries") add("error", "TOO_MANY_FILES", `החבילה מכילה יותר מ-${limits.maxEntries} קבצים.`);
-    else if (msg === "too_large") add("error", "TOO_LARGE", "הגודל הכולל של החבילה אחרי פריסה חורג מהמותר (2GB).");
+    else if (msg === "too_large") add("error", "TOO_LARGE", `הגודל הכולל של החבילה אחרי פריסה חורג מהמותר (${Math.floor(limits.maxTotalBytes / 1024 ** 2)}MB).`);
     else if (/invalid relative path|absolute path|invalid characters/i.test(msg)) add("error", "ZIP_SLIP", "החבילה מכילה נתיבי קבצים לא חוקיים, ולכן היא נדחתה.");
     else if (/bytes|size/i.test(msg)) add("error", "ZIP_BOMB", "גודל הקבצים בחבילה אינו תואם להצהרה שלה, ולכן היא נדחתה.");
     else add("error", "BAD_ZIP", "הקובץ אינו קובץ ZIP תקין.");

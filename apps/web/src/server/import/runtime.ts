@@ -1,5 +1,4 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { scripts } from "./generated/scorm";
 import type { PackageFormat } from "./analyze";
 
 /**
@@ -64,6 +63,5 @@ ${lib}
 export async function runtimeScript(format: PackageFormat): Promise<{ name: string; body: Buffer } | null> {
   if (format === "html5") return null;
   const name = format === "scorm12" ? "scorm12.min.js" : "scorm2004.min.js";
-  const file = path.join(/* turbopackIgnore: true */ process.cwd(), "node_modules", "scorm-again", "dist", name);
-  return { name, body: await readFile(file) };
+  return { name, body: Buffer.from(scripts[name]!, "utf8") };
 }
