@@ -39,10 +39,9 @@ test("original interactive JSON imports, plays, validates matching and exports i
   const openChapter = page.locator(".import-results").getByRole("link", { name: imported.chapter.name, exact: true });
   await openChapter.scrollIntoViewIfNeeded();
   await expect(openChapter).toBeInViewport();
-  console.info("Interactive import navigation viewport", await openChapter.evaluate(el => {
-    const rect = el.getBoundingClientRect();
-    return { width: innerWidth, scrollWidth: document.documentElement.scrollWidth, scrollY, visualWidth: visualViewport?.width, visualScale: visualViewport?.scale, visualOffsetTop: visualViewport?.offsetTop, link: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } };
-  }));
+  // An unpositioned RTL table scrollport let its hidden absolute header expand
+  // Chromium's layout viewport and offset otherwise visible tap targets.
+  await expect.poll(() => page.evaluate(() => innerWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   if (info.project.name === "desktop") await openChapter.click();
   else await openChapter.tap();
   await expect(page).toHaveURL(new RegExp(`/studio/chapters/${id}$`));
