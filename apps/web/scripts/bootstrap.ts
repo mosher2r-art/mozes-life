@@ -12,6 +12,7 @@ import { hashPassword } from "better-auth/crypto";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { postgresConfig } from "../src/db/postgres-config";
 import * as schema from "../src/db/schema";
 
 const url = process.env.DATABASE_URL;
@@ -22,7 +23,7 @@ const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
 const name = process.env.BOOTSTRAP_ADMIN_NAME?.trim() || "מנהל/ת מערכת";
 const withDemo = process.env.BOOTSTRAP_DEMO_COURSE === "true";
 
-const pool = new Pool({ connectionString: url });
+const pool = new Pool(postgresConfig(url));
 const db = drizzle(pool, { schema });
 
 try {
