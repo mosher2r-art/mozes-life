@@ -1,10 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { checkDeclared, MEDIA_TYPES } from "./media-policy";
 
 const bytes = (...xs: (number | string)[]) => new Uint8Array(xs.flatMap((x) => (typeof x === "string" ? [...x].map((c) => c.charCodeAt(0)) : [x])));
 const type = (mime: string) => MEDIA_TYPES.find((t) => t.mime === mime)!;
+afterEach(() => vi.unstubAllEnvs());
 
 describe("checkDeclared", () => {
+  it("rejects media above the deployed storage limit before uploading", () => {
+    vi.stubEnv("NEXT_PUBLIC_MEDIA_MAX_BYTES", String(50 * 1024 ** 2));
+    expect(checkDeclared("video.mp4", "video/mp4", 49 * 1024 ** 2).ok).toBe(true);
+    expect(checkDeclared("video.mp4", "video/mp4", 51 * 1024 ** 2)).toMatchObject({ ok: false, message: expect.stringContaining("50MB") });
+    expect(checkDeclared("photo.png", "image/png", 16 * 1024 ** 2).ok).toBe(false);
+  });
   it("accepts supported files", () => {
     expect(checkDeclared("aed.mp4", "video/mp4", 5_000_000).ok).toBe(true);
     expect(checkDeclared("Lobby.JPG", "image/jpeg", 200_000).ok).toBe(true);
