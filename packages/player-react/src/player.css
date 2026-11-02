@@ -274,3 +274,18 @@ fieldset:disabled .mp-option:not(.is-correct):not(.is-incorrect) { opacity: 0.55
 @media (prefers-reduced-motion: reduce) {
   .mp-player *, .mp-player *::before, .mp-player *::after { animation: none !important; transition: none !important; }
 }
+/* Imported interactive JSON scenes keep their proportional source layout. */
+.mp-scene-wrap { width: 100%; }
+.mp-interactive-scene { position: relative; width: 100%; max-width: 390px; aspect-ratio: 9 / 16; margin-inline: auto; overflow: hidden; background: #fff; container-type: inline-size; direction: rtl; }
+.mp-scene-object { position: absolute; box-sizing: border-box; white-space: pre-line; margin: 0; }
+.mp-scene-next, .mp-scene-drag, .mp-scene-drop { border: 1px solid #b8c8bf; border-radius: 10px; font-family: inherit; line-height: 1.25; padding: 4px; cursor: pointer; }
+.mp-scene-next { color: white; background: #08764c; border-color: #08764c; font-weight: 700; }
+.mp-scene-drag { color: #16372b; background: #f3f8f5; touch-action: none; }
+.mp-scene-drop { color: #244c3d; background: #eaf2ed; border-style: dashed; }
+.mp-scene-object.is-selected { outline: 3px solid #08764c; outline-offset: 2px; }
+.mp-scene-object.is-matched { border-color: #08764c; background: #daf2e4; opacity: 1; color: #16372b; }
+.mp-scene-next:disabled { opacity: .6; cursor: default; }
+.mp-scene-ghost { position: fixed; z-index: 9999; pointer-events: none; transform: translate(-50%, -50%); background: #f3f8f5; color: #16372b; border: 2px solid #08764c; border-radius: 10px; padding: 12px; max-width: 250px; white-space: pre-line; }
+@keyframes mp-scene-pulse { 50% { transform: scale(1.025); } }
+.mp-scene-pulse { animation: mp-scene-pulse 2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .mp-scene-object { transition: none !important; } .mp-scene-pulse { animation: none; } }
