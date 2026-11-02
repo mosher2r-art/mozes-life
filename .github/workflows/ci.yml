@@ -55,8 +55,11 @@ jobs:
         env:
           DATABASE_URL: postgres://placeholder:placeholder@localhost:5432/placeholder
           BETTER_AUTH_SECRET: ci-build-placeholder-secret-0123456789abcdef
-          BETTER_AUTH_URL: http://localhost:3000
-          PACKAGE_ORIGIN: http://127.0.0.1:3100
+          BETTER_AUTH_URL: https://mozes-life-development.mosher2r.workers.dev
+          PACKAGE_ORIGIN: https://media-mozes-life-development.mosher2r.workers.dev
+          S3_PUBLIC_BASE_URL: https://media-mozes-life-development.mosher2r.workers.dev
+          S3_ENDPOINT: https://msyfqdiypyuloylconrr.storage.supabase.co/storage/v1/s3
+          NEXT_PUBLIC_MEDIA_MAX_BYTES: "52428800"
           WRANGLER_SEND_METRICS: "false"
       - name: Package the validated Worker build
         run: |
