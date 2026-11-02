@@ -64,6 +64,20 @@
       "when": 1793563429311,
       "tag": "0008_chapter_bank",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793613600000,
+      "tag": "0009_auth_rate_limit",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793613600001,
+      "tag": "0010_server_permissions",
+      "breakpoints": true
     }
   ]
 }
