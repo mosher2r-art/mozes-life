@@ -349,17 +349,20 @@ export async function extractZip(
   file: string,
   report: AnalysisReport,
   write: (relPath: string, stream: Readable, size: number, contentType: string) => Promise<void>,
+  batch: { offset: number; limit: number } = { offset: 0, limit: Infinity },
 ): Promise<{ files: number; bytes: number }> {
   if (report.verdict === "unsupported") throw new Error("refusing to extract an unsupported package");
   const skipped = new Set(report.skipped);
   let files = 0;
   let bytes = 0;
+  let accepted = 0;
   await forEachEntry(file, async (zip, entry) => {
     const name = entry.fileName;
     if (/\/$/.test(name) || /(^|\/)(__MACOSX\/|\.DS_Store$|Thumbs\.db$)/.test(name) || skipped.has(name)) return;
     if (!CONTENT_TYPES[extOf(name)]) return;
     if (!name.startsWith(report.rootPrefix)) return; // files outside the package root are not served
     const rel = name.slice(report.rootPrefix.length);
+    if (accepted++ < batch.offset || files >= batch.limit) return;
     const s = await readStream(zip, entry);
     await write(rel, s, entry.uncompressedSize, contentTypeOf(name));
     files++;
