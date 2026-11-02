@@ -36,7 +36,15 @@ test("original interactive JSON imports, plays, validates matching and exports i
   // The table refresh confirms persistence. The import result offers a direct
   // link that remains reachable without horizontally scrolling a phone table.
   await expect(page.locator(`a.table-title[href="/studio/chapters/${id}"]`)).toBeAttached();
-  await page.locator(".import-results").getByRole("link", { name: imported.chapter.name, exact: true }).click();
+  const openChapter = page.locator(".import-results").getByRole("link", { name: imported.chapter.name, exact: true });
+  await openChapter.scrollIntoViewIfNeeded();
+  await expect(openChapter).toBeInViewport();
+  console.info("Interactive import navigation viewport", await openChapter.evaluate(el => {
+    const rect = el.getBoundingClientRect();
+    return { width: innerWidth, scrollWidth: document.documentElement.scrollWidth, scrollY, visualWidth: visualViewport?.width, visualScale: visualViewport?.scale, visualOffsetTop: visualViewport?.offsetTop, link: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } };
+  }));
+  if (info.project.name === "desktop") await openChapter.click();
+  else await openChapter.tap();
   await expect(page).toHaveURL(new RegExp(`/studio/chapters/${id}$`));
   await page.getByRole("button", { name: "תצוגה מקדימה", exact: true }).click();
   const preview = page.getByRole("dialog", { name: "תצוגה מקדימה", exact: true });
