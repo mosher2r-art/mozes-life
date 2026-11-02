@@ -1,0 +1,7 @@
+{
+  "AllowedOrigins": ["https://YOUR-DEVELOPMENT-WORKER.example.com"],
+  "AllowedMethods": ["GET", "HEAD", "PUT"],
+  "AllowedHeaders": ["Content-Type", "Range"],
+  "ExposeHeaders": ["Content-Length", "Content-Range", "ETag"],
+  "MaxAgeSeconds": 900
+}

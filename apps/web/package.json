@@ -4,19 +4,26 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "pnpm assets:bundle && next dev",
+    "build": "pnpm assets:bundle && next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "pnpm assets:bundle && tsc --noEmit",
     "lint": "eslint src scripts e2e",
-    "test": "vitest run --passWithNoTests --dir src",
+    "test": "pnpm assets:bundle && vitest run --passWithNoTests --dir src",
     "e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "user:create": "tsx scripts/create-user.ts",
     "demo:publish": "tsx scripts/publish-demo.ts",
     "bootstrap": "tsx scripts/bootstrap.ts",
-    "start:hosted": "pnpm db:migrate && pnpm bootstrap && next start"
+    "start:hosted": "pnpm db:migrate && pnpm bootstrap && next start",
+    "assets:bundle": "tsx scripts/bundle-scorm.ts",
+    "build:worker": "opennextjs-cloudflare build",
+    "preview:worker": "opennextjs-cloudflare preview",
+    "deploy:worker": "opennextjs-cloudflare deploy",
+    "sql:generate": "tsx scripts/generate-supabase.ts",
+    "sql:verify": "tsx scripts/verify-supabase.ts",
+    "import:local": "pnpm assets:bundle && node --conditions=react-server --import tsx scripts/import-local.ts"
   },
   "dependencies": {
     "@fontsource/heebo": "5.3.0",
@@ -40,6 +47,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
+    "@opennextjs/cloudflare": "1.20.15",
     "@playwright/test": "1.63.0",
     "@types/node": "^22.20.5",
     "@types/pg": "^8.23.1",
@@ -47,6 +55,7 @@
     "@types/react-dom": "^19.3.0",
     "@types/yauzl": "^3.4.0",
     "drizzle-kit": "0.31.11",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "wrangler": "4.156.0"
   }
 }

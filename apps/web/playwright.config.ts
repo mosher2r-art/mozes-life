@@ -9,19 +9,20 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: process.env.CI ? [["github"], ["list"]] : [["list"]],
-  globalSetup: "./e2e/global-setup.ts",
+  globalSetup: process.env.E2E_PRESEEDED === "1" ? undefined : "./e2e/global-setup.ts",
   use: { baseURL: `http://localhost:${PORT}`, locale: "he-IL", trace: "retain-on-failure" },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },
     { name: "mobile", use: { ...devices["Pixel 7"] } },
+    { name: "iphone", use: { ...devices["iPhone 13"] } },
   ],
-  webServer: {
+  webServer: process.env.E2E_EXTERNAL_SERVER === "1" ? undefined : {
     command: `pnpm exec next start -p ${PORT}`,
     url: `http://localhost:${PORT}/api/health`,
     reuseExistingServer: false,
     timeout: 60_000,
     env: {
-      DATABASE_URL: TEST_DB,
+      DATABASE_URL: process.env.TEST_APP_DATABASE_URL ?? TEST_DB,
       BETTER_AUTH_SECRET: "e2e-only-secret-not-for-production-0123456789",
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
       NODE_ENV: "production",
