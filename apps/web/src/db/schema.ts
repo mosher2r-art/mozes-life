@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
   date,
@@ -374,3 +375,11 @@ export const courseAccess = pgTable(
     check("course_access_dates", sql`${t.validUntil} is null or ${t.validUntil} >= ${t.validFrom}`),
   ],
 );
+
+/** Shared across Worker isolates; no per-isolate in-memory sign-in counters. */
+export const rateLimit = pgTable("rate_limit", {
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+});
