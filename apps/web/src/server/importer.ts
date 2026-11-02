@@ -53,7 +53,9 @@ export function launchUrlFor(packageId: string): string | null {
  * extracts it under packages/<id>/ together with the MOZES launch page.
  */
 export async function analyseImport(actorId: string, id: string): Promise<ImportView | null> {
-  const job = await getImport(id);
+  return db.transaction(async tx => {
+  // Serialize retries so two browser requests cannot create duplicate packages.
+  const [job] = await tx.select().from(importJob).where(eq(importJob.id, id)).for("update");
   if (!job) return null;
   if (job.status !== "uploading") return toView(job);
 
@@ -71,21 +73,33 @@ export async function analyseImport(actorId: string, id: string): Promise<Import
     }
 
     if (report.verdict === "unsupported" || !report.format || !report.launchPath) {
-      await db.update(importJob).set({ status: "rejected", report }).where(eq(importJob.id, id));
+      await tx.update(importJob).set({ status: "rejected", report }).where(eq(importJob.id, id));
       await remove(job.storageKey).catch(() => undefined);
       return toView({ ...job, status: "rejected", report });
     }
 
-    const packageId = rid("p");
+    type ExtractionState = { packageId: string; files: number; bytes: number };
+    const previous = (job.report as (AnalysisReport & { _extraction?: ExtractionState }) | null)?._extraction;
+    const packageId = previous?.packageId ?? rid("p");
     const prefix = `packages/${packageId}`;
-    const { files, bytes } = await extractZip(file, report, (rel, stream, size, contentType) => putObject(`${prefix}/${rel}`, stream, size, contentType));
+    // Leave room below Workers Free's 50 external requests for ZIP download,
+    // generated runtime files and retries. Node keeps its full import workflow.
+    const limit = isWorker ? 32 : Infinity;
+    const extracted = await extractZip(file, report, (rel, stream, size, contentType) => putObject(`${prefix}/${rel}`, stream, size, contentType), { offset: previous?.files ?? 0, limit });
+    const files = (previous?.files ?? 0) + extracted.files;
+    const bytes = (previous?.bytes ?? 0) + extracted.bytes;
+    if (extracted.files === limit) {
+      const pending = { ...report, _extraction: { packageId, files, bytes } };
+      await tx.update(importJob).set({ report: pending }).where(eq(importJob.id, id));
+      return toView({ ...job, report: pending });
+    }
     const launchRel = report.launchPath.slice(report.rootPrefix.length);
     const html = Buffer.from(launchPage(report.format, launchRel), "utf8");
     await putObject(`${prefix}/__mozes/launch.html`, html, html.length, "text/html; charset=utf-8");
     const lib = await runtimeScript(report.format);
     if (lib) await putObject(`${prefix}/__mozes/${lib.name}`, lib.body, lib.body.length, "text/javascript; charset=utf-8");
 
-    await db.insert(coursePackage).values({
+    await tx.insert(coursePackage).values({
       id: packageId,
       format: report.format,
       title: report.title || job.filename.replace(/\.zip$/i, ""),
@@ -95,20 +109,23 @@ export async function analyseImport(actorId: string, id: string): Promise<Import
       report,
       createdBy: actorId,
     });
-    await db.update(importJob).set({ status: "analysed", report, packageId }).where(eq(importJob.id, id));
-    await db.insert(auditLog).values({ actorId, action: "import.analyse", entity: "package", entityId: packageId, details: { filename: job.filename, verdict: report.verdict, format: report.format, files } });
+    await tx.update(importJob).set({ status: "analysed", report, packageId }).where(eq(importJob.id, id));
+    await tx.insert(auditLog).values({ actorId, action: "import.analyse", entity: "package", entityId: packageId, details: { filename: job.filename, verdict: report.verdict, format: report.format, files } });
     return toView({ ...job, status: "analysed", report, packageId });
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+  });
 }
 
 function toView(job: typeof importJob.$inferSelect): ImportView {
+  const report = job.report ? { ...(job.report as AnalysisReport & { _extraction?: unknown }) } : null;
+  if (report) delete report._extraction;
   return {
     id: job.id,
     filename: job.filename,
     status: job.status,
-    report: (job.report as AnalysisReport | null) ?? null,
+    report,
     packageId: job.packageId,
     launchUrl: job.packageId ? launchUrlFor(job.packageId) : null,
   };
