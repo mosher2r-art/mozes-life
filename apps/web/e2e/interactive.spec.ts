@@ -33,7 +33,9 @@ test("original interactive JSON imports, plays, validates matching and exports i
   const body = await response.json();
   expect(body.results[0].ok).toBe(true);
   const id = body.results[0].chapters[0].id;
-  await page.goto(`/studio/chapters/${id}`);
+  // Wait for the bank refresh and follow the same link an author uses.
+  await page.getByRole("link", { name: imported.chapter.name, exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/studio/chapters/${id}$`));
   await page.getByRole("button", { name: "תצוגה מקדימה", exact: true }).click();
   const preview = page.getByRole("dialog", { name: "תצוגה מקדימה", exact: true });
   const scene = preview.getByTestId("interactive-scene");
