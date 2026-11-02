@@ -2,6 +2,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
+import { fileURLToPath } from "node:url";
 
 const url = process.env.DATABASE_URL;
 if (!url) {
@@ -10,7 +11,7 @@ if (!url) {
 }
 const pool = new Pool({ connectionString: url });
 try {
-  await migrate(drizzle(pool), { migrationsFolder: new URL("../drizzle", import.meta.url).pathname });
+  await migrate(drizzle(pool), { migrationsFolder: fileURLToPath(new URL("../drizzle", import.meta.url)) });
   console.log("Migrations applied.");
 } finally {
   await pool.end();
