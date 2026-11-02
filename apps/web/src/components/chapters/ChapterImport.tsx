@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export interface ImportedChapterView {
   id: string;
@@ -22,6 +23,7 @@ const MAX_TOTAL = 5_000_000;
  * "mozes-course" that is split into one chapter per unit. Ids are regenerated on the server.
  */
 export function ChapterImport({ onImported, compact = false }: { onImported?: (chapters: ImportedChapterView[]) => void; compact?: boolean }) {
+  const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -46,6 +48,7 @@ export function ChapterImport({ onImported, compact = false }: { onImported?: (c
       setResults(body.results);
       const created = body.results.flatMap((r) => r.chapters ?? []);
       if (created.length) onImported?.(created);
+      if (created.length && !onImported) router.refresh();
     } catch {
       setError("אין חיבור לשרת. נסו שוב.");
     } finally {
@@ -63,7 +66,7 @@ export function ChapterImport({ onImported, compact = false }: { onImported?: (c
         onDrop={(e) => { e.preventDefault(); setOver(false); void send(e.dataTransfer.files); }}
       >
         {!compact && <strong>גררו לכאן קובצי פרקים</strong>}
-        <span>קובצי ‎.json בפורמט פרק של MOZES. קובץ קורס שלם יפוצל לפרקים.</span>
+        <span>קובצי ‎.json של פרק, קורס או לומדה אינטראקטיבית של MOZES. סוג התוכן מזוהה אוטומטית; קורס שלם יפוצל לפרקים.</span>
         <label className="btn btn-quiet btn-sm">
           {busy ? "מייבא…" : "בחירת קבצים"}
           <input ref={input} type="file" accept=".json,application/json" multiple className="visually-hidden" aria-label="בחירת קובצי פרקים לייבוא" disabled={busy} onChange={(e) => e.target.files && void send(e.target.files)} />
