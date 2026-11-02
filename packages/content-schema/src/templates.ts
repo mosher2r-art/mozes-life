@@ -39,7 +39,7 @@ export const TEMPLATES: Record<TemplateId, TemplateDef> = {
     label: "טקסט והסבר",
     description: "כותרות, טקסט והדגשות",
     slots: [
-      { id: "body", label: "תוכן", accepts: [...TEXTUAL, "audio", "button"], min: 1, max: 12 },
+      { id: "body", label: "תוכן", accepts: [...TEXTUAL, "audio", "button", "interactiveScene"], min: 1, max: 12 },
     ],
   },
   media_text: {
