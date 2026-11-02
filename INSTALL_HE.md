@@ -14,7 +14,7 @@
 - SQL עצמאי למסד חדש בלבד ב־supabase/fresh-install.sql. אין להריצו על מסד האתר הפעיל.
 - בדיקות CI על Ubuntu, כולל PostgreSQL זמני, בדיקות קיימות, בניית Worker ו־wrangler deploy --dry-run. ה־CI אינו פורס אתר ואינו מכיל סודות אמיתיים.
 
-בדיקות Linux של גרסת ההסבה הראשונית עברו ב־GitHub Actions, כולל 101 בדיקות יחידה ואינטגרציה, 56 בדיקות דפדפן, SQL, בניית Next, בניית OpenNext ו־Wrangler dry run; 31 בדיקות דולגו. תיקוני תעודת Supabase ואחסון המדיה נבדקים בנפרד, ויש לעיין בדוח הבדיקות של גרסת המסירה. הצלחת build אינה מהווה אישור לבדיקות ענן או למוכנות המערכת.
+גרסת הקוד 6d98f396a21dac0185bfacea01dd0a3689739a30 עברה ב־GitHub Actions ריצה 41522906050: 113 בדיקות יחידה ואינטגרציה, 56 בדיקות דפדפן, SQL, בניית Next, בניית OpenNext ו־Wrangler dry run; 31 בדיקות דולגו לפי תנאי המכשירים הקיימים. אותה בנייה נפרסה לעותק הפיתוח. בדיקות ענן נוספות עברו, כולל התחברות, הרשאות, עריכה ופרסום, מדיה, ייבוא SCORM בן 70 קבצים ושמירת ציון והתקדמות. בדיקת האייפון כוללת הדמיית WebKit ותצוגה רספונסיבית; לא נבדק מכשיר פיזי. פירוט ומגבלות נמצאים בדוח המסירה.
 
 ## המשך העבודה
 
@@ -28,7 +28,7 @@
 
 ### חיבור Cloudflare למסד באמצעות Hyperdrive
 
-בבדיקת הענן שוחזרה סגירת חיבור PostgreSQL מיד לאחר STARTTLS בחיבור ישיר מ־Workers ל־Supavisor. לכן עותק הפיתוח משתמש ב־Hyperdrive החינמי. בלוח Cloudflare פותחים Storage & databases → Postgres & MySQL (Hyperdrive) → Connect database, מגדירים את מסד הפיתוח ואת תפקיד mozes_app, ומשאירים Enable caching כבוי. יש להמשיך רק לאחר שבדיקת החיבור מצליחה. ברירת המחדל של Hyperdrive מחייבת TLS ומאמתת תעודת שרת באמצעות WebPKI; אין לבטל אימות תעודות.
+בבדיקת הענן שוחזרה סגירת חיבור PostgreSQL מיד לאחר STARTTLS בחיבור ישיר מ־Workers ל־Supavisor. לכן עותק הפיתוח משתמש ב־Hyperdrive החינמי. בלוח Cloudflare פותחים Storage & databases → Postgres & MySQL (Hyperdrive) → Connect database, מגדירים חיבור ישיר למסד הפיתוח: db.PROJECT_REF.supabase.co:5432, מסד postgres ותפקיד mozes_app ללא סיומת מזהה הפרויקט בשם המשתמש. אין לחבר את Hyperdrive ל־transaction pooler בפורט 6543: בבדיקת הענן החיבור המקונן נתקע בשאילתות עם פרמטרים. משאירים Enable caching כבוי. יש להמשיך רק לאחר שבדיקת החיבור מצליחה. ברירת המחדל של Hyperdrive מחייבת TLS ומאמתת תעודת שרת באמצעות WebPKI; אין לבטל אימות תעודות.
 
 מזהה החיבור בקובץ apps/web/wrangler.jsonc שייך לעותק הפיתוח הנוכחי. בהתקנה בחשבון אחר מחליפים אותו במזהה החיבור החדש. היישום קורא את binding בשם HYPERDRIVE בכל בקשה, ומנתב דרכו את שאילתות Drizzle ו־Better Auth בלי להחליף את מנגנון ההתחברות או את הטבלאות. SSL של לקוח pg כבוי רק במקטע הפנימי בין Worker ל־Hyperdrive; Hyperdrive מצפין ומאמת את החיבור למסד החיצוני. חיבורי Node ממשיכים להשתמש ב־sslmode=verify-full ובתעודת Supabase הרשמית.
 
