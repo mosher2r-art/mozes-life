@@ -447,6 +447,7 @@ function AddComponent({ types, onAdd }: { types: ComponentType[]; onAdd: (t: Com
 
 function summary(c: Component): string {
   switch (c.type) {
+    case "interactiveScene": return c.scene.title;
     case "heading": return c.text;
     case "richText":
     case "callout": return ops.blocksToText(c.body).slice(0, 80);
