@@ -41,7 +41,7 @@ function buildZip(): string {
   const dir = path.resolve("test-results", "fixtures");
   mkdirSync(dir, { recursive: true });
   const out = path.join(dir, "scorm12-sample.zip");
-  execFileSync("python3", ["-c", "import sys,zipfile\nz=zipfile.ZipFile(sys.argv[1],'w',zipfile.ZIP_DEFLATED)\nz.writestr('imsmanifest.xml',sys.argv[2])\nz.writestr('index.html',sys.argv[3])\nz.close()", out, MANIFEST, SCO]);
+  execFileSync(process.env.PYTHON ?? (process.platform === "win32" ? "python" : "python3"), ["-c", "import sys,zipfile\nz=zipfile.ZipFile(sys.argv[1],'w',zipfile.ZIP_DEFLATED)\nz.writestr('imsmanifest.xml',sys.argv[2])\nz.writestr('index.html',sys.argv[3])\nz.close()", out, MANIFEST, SCO]);
   return out;
 }
 
@@ -127,7 +127,7 @@ test("rejects a malicious archive with a clear report", async ({ page }, info) =
   const dir = path.resolve("test-results", "fixtures");
   mkdirSync(dir, { recursive: true });
   const evil = path.join(dir, "evil.zip");
-  execFileSync("python3", ["-c", "import sys,zipfile\nz=zipfile.ZipFile(sys.argv[1],'w')\nz.writestr('index.html','x')\nz.writestr('../../escape.html','x')\nz.close()", evil]);
+  execFileSync(process.env.PYTHON ?? (process.platform === "win32" ? "python" : "python3"), ["-c", "import sys,zipfile\nz=zipfile.ZipFile(sys.argv[1],'w')\nz.writestr('index.html','x')\nz.writestr('../../escape.html','x')\nz.close()", evil]);
   await page.getByLabel("בחירת קובץ ZIP לייבוא").setInputFiles(evil);
   await expect(page.getByText("אינו נתמך", { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/נתיב קובץ לא חוקי|נתיבי קבצים לא חוקיים/)).toBeVisible();

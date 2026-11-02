@@ -1,15 +1,20 @@
 import { execFileSync } from "node:child_process";
+import { Pool } from "pg";
 import { USERS } from "./fixtures";
 
-/** Recreates the test database from migrations and seeds one user per role. */
-export default function globalSetup() {
+/** Seeds a dedicated EMPTY test database. Never drops schemas or existing data. */
+export default async function globalSetup() {
   const DATABASE_URL = process.env.TEST_DATABASE_URL ?? "postgres://mozes:mozes@localhost:5432/mozes_life_test";
-  if (!/_test\b/.test(DATABASE_URL)) throw new Error("Refusing to reset a non-test database");
+  if (!new URL(DATABASE_URL).pathname.endsWith("_test")) throw new Error("A dedicated *_test database is required");
   const env = { ...process.env, DATABASE_URL };
   const run = (args: string[], extra: Record<string, string> = {}) =>
-    execFileSync("pnpm", args, { env: { ...env, ...extra }, stdio: "pipe" });
+    execFileSync(process.env.PNPM_SCRIPT ? process.execPath : "pnpm", process.env.PNPM_SCRIPT ? [process.env.PNPM_SCRIPT, ...args] : args, { env: { ...env, ...extra }, stdio: "pipe" });
 
-  execFileSync("psql", [DATABASE_URL, "-q", "-c", "drop schema if exists public cascade; drop schema if exists drizzle cascade; create schema public;"], { stdio: "pipe" });
+  const pool = new Pool({ connectionString: DATABASE_URL });
+  try {
+    const { rowCount } = await pool.query("select 1 from pg_tables where schemaname in ('public','drizzle')");
+    if (rowCount) throw new Error("Test database must be empty; create a new dedicated test database. No data has been deleted.");
+  } finally { await pool.end(); }
   run(["db:migrate"]);
   run(["user:create", "--email", USERS.admin.email, "--name", USERS.admin.name, "--role", "super_admin"], { MOZES_NEW_PASSWORD: USERS.admin.password });
   run(["user:create", "--email", USERS.editor.email, "--name", USERS.editor.name, "--role", "editor"], { MOZES_NEW_PASSWORD: USERS.editor.password });

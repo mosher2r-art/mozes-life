@@ -62,7 +62,7 @@ test("the server rejects invalid or out-of-order events and other users' enrollm
 });
 
 test("course page fits the phone screen", async ({ page }, info) => {
-  test.skip(info.project.name !== "mobile", "layout check for phones");
+  test.skip(!["mobile", "iphone"].includes(info.project.name), "layout check for phones");
   await login(page, "learner");
   await page.locator(".course-card", { hasText: "הדגמת נגן MOZES LIFE" }).getByRole("link").click();
   await page.waitForSelector(".mp-player");
