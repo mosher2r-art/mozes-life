@@ -8,6 +8,7 @@ import { parseArgs } from "node:util";
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { postgresConfig } from "../src/db/postgres-config";
 import { validateCourse } from "@mozes/validator";
 import { demoCourse } from "../src/content/demo-course";
 import * as schema from "../src/db/schema";
@@ -25,7 +26,7 @@ if (!result.ok || !result.course) {
 const content = result.course;
 const hash = contentHash(content);
 
-const pool = new Pool({ connectionString: url });
+const pool = new Pool(postgresConfig(url));
 const db = drizzle(pool, { schema });
 const COURSE_ID = "demo-player";
 
