@@ -364,6 +364,8 @@ export function ComponentForm({
           <QuestionCommon c={c} patch={patch} disabled={disabled} />
         </>
       );
+    case "interactiveScene":
+      return <p className="ef-hint">מסך מיובא עם {c.scene.objects.length} רכיבים. העיצוב והאינטראקציות נשמרים וניתנים לבדיקה בתצוגה המקדימה.</p>;
     default:
       return <p className="ef-hint">עריכת רכיב מסוג זה תתאפשר עם ספריית המדיה.</p>;
   }
