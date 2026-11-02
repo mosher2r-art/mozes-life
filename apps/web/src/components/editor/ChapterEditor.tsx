@@ -196,6 +196,9 @@ export function ChapterEditor(props: ChapterEditorProps) {
     select(r.screenId);
     setAdding(false);
   };
+  // A changed document is dirty during this render, before the autosave effect
+  // runs. Never briefly show the previous document's successful save status.
+  const displayedSave = save === "saved" && doc !== savedDoc.current ? "dirty" : save;
 
   return (
     <div className="ed">
@@ -206,8 +209,8 @@ export function ChapterEditor(props: ChapterEditorProps) {
           <button type="button" aria-pressed={!isExam} disabled={ro} onClick={() => setKind("lesson")}>שיעור</button>
           <button type="button" aria-pressed={isExam} disabled={ro} onClick={() => setKind("exam")}>מבחן</button>
         </div>
-        <span className={`ed-save ed-save-${save}`} role="status" aria-live="polite">
-          {SAVE_TEXT[save]}{save === "invalid" && saveMsg ? `: ${saveMsg}` : ""}
+        <span className={`ed-save ed-save-${displayedSave}`} role="status" aria-live="polite">
+          {SAVE_TEXT[displayedSave]}{displayedSave === "invalid" && saveMsg ? `: ${saveMsg}` : ""}
         </span>
         <div className="ed-top-actions">
           <button type="button" className="ed-icon" onClick={undo} disabled={ro || past.current.length === 0} aria-label="ביטול (Ctrl+Z)" title="ביטול (Ctrl+Z)">↶</button>
