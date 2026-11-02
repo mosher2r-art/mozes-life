@@ -2,6 +2,7 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
+import { postgresConfig } from "../src/db/postgres-config";
 import { fileURLToPath } from "node:url";
 
 const url = process.env.DATABASE_URL;
@@ -9,7 +10,7 @@ if (!url) {
   console.error("DATABASE_URL is not set");
   process.exit(1);
 }
-const pool = new Pool({ connectionString: url });
+const pool = new Pool(postgresConfig(url));
 try {
   await migrate(drizzle(pool), { migrationsFolder: fileURLToPath(new URL("../drizzle", import.meta.url)) });
   console.log("Migrations applied.");
