@@ -27,6 +27,15 @@ export const MEDIA_TYPES: MediaType[] = [
 
 export const ACCEPT_ATTR = MEDIA_TYPES.map((t) => [t.mime, ...t.ext.map((e) => `.${e}`)].join(",")).join(",");
 
+function storageLimit(): number {
+  const configured = Number(process.env.NEXT_PUBLIC_MEDIA_MAX_BYTES);
+  return Number.isSafeInteger(configured) && configured > 0 ? configured : Infinity;
+}
+
+export function maxMediaBytes(kind: AssetKind): number {
+  return Math.min(storageLimit(), Math.max(...MEDIA_TYPES.filter((t) => t.kind === kind).map((t) => t.maxBytes)));
+}
+
 export type CheckResult = { ok: true; type: MediaType } | { ok: false; message: string };
 
 /** Pre-upload check of name, declared type and size (repeated on the server). */
@@ -38,7 +47,8 @@ export function checkDeclared(filename: string, mime: string, size: number): Che
     return { ok: false, message: "סיומת הקובץ אינה תואמת את סוגו." };
   }
   if (size <= 0) return { ok: false, message: "הקובץ ריק." };
-  if (size > type.maxBytes) return { ok: false, message: `הקובץ גדול מדי. הגודל המרבי ל${KIND_LABEL[type.kind]} הוא ${Math.round(type.maxBytes / MB)}MB.` };
+  const limit = Math.min(type.maxBytes, storageLimit());
+  if (size > limit) return { ok: false, message: `הקובץ גדול מדי. הגודל המרבי ל${KIND_LABEL[type.kind]} הוא ${Math.round(limit / MB)}MB.` };
   return { ok: true, type };
 }
 
