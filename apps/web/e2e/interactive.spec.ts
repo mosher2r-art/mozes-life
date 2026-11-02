@@ -33,8 +33,10 @@ test("original interactive JSON imports, plays, validates matching and exports i
   const body = await response.json();
   expect(body.results[0].ok).toBe(true);
   const id = body.results[0].chapters[0].id;
-  // Wait for the bank refresh and follow the same link an author uses.
-  await page.getByRole("link", { name: imported.chapter.name, exact: true }).click();
+  // The table refresh confirms persistence. The import result offers a direct
+  // link that remains reachable without horizontally scrolling a phone table.
+  await expect(page.locator(`a.table-title[href="/studio/chapters/${id}"]`)).toBeAttached();
+  await page.locator(".import-results").getByRole("link", { name: imported.chapter.name, exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/studio/chapters/${id}$`));
   await page.getByRole("button", { name: "תצוגה מקדימה", exact: true }).click();
   const preview = page.getByRole("dialog", { name: "תצוגה מקדימה", exact: true });
