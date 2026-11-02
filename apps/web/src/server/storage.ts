@@ -17,7 +17,10 @@ import { AwsClient } from "aws4fetch";
 export type Driver = "r2" | "local" | "none";
 
 export function driver(): Driver {
-  if (process.env.MEDIA_DRIVER === "local") return "local";
+  if (process.env.MEDIA_DRIVER === "local") {
+    if (process.env.DEPLOY_TARGET === "cloudflare") throw new Error("Local storage is unavailable on Workers; configure R2 or S3");
+    return "local";
+  }
   return s3Config() ? "r2" : "none";
 }
 
@@ -122,8 +125,20 @@ export async function inspect(key: string): Promise<{ size: number; head: Uint8A
     const res = await client.fetch(objectUrl(key), { headers: { range: "bytes=0-31" } });
     if (!(res.status === 206 || res.status === 200)) return null;
     const total = Number(res.headers.get("content-range")?.split("/")[1] ?? res.headers.get("content-length"));
-    const head = new Uint8Array(await res.arrayBuffer()).slice(0, 32);
-    return { size: total, head };
+    if (!res.body) return null;
+    const reader = res.body.getReader();
+    const head = new Uint8Array(32);
+    let length = 0;
+    try {
+      while (length < 32) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const part = value.subarray(0, 32 - length);
+        head.set(part, length);
+        length += part.length;
+      }
+    } finally { await reader.cancel(); }
+    return { size: total, head: head.subarray(0, length) };
   }
   return null;
 }
@@ -194,9 +209,10 @@ export async function putObject(key: string, body: NodeJS.ReadableStream | Buffe
 }
 
 /** Copies a stored object to a local temp file (imports are analysed from disk). */
-export async function downloadToFile(key: string, dest: string): Promise<void> {
+export async function downloadToFile(key: string, dest: string, maxBytes = 500 * 1024 ** 2): Promise<void> {
   const d = driver();
   if (d === "local") {
+    if ((await stat(path.join(localDir(), safeKey(key)))).size > maxBytes) throw new Error("too_large");
     const { copyFile } = await import("node:fs/promises");
     await copyFile(path.join(localDir(), safeKey(key)), dest);
     return;
@@ -205,7 +221,15 @@ export async function downloadToFile(key: string, dest: string): Promise<void> {
     const { client, objectUrl } = r2();
     const res = await client.fetch(objectUrl(key));
     if (!res.ok || !res.body) throw new Error(`storage GET failed: ${res.status}`);
-    await pipeline(Readable.fromWeb(res.body as never), createWriteStream(dest));
+    let received = 0;
+    const limited = res.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        received += chunk.byteLength;
+        if (received > maxBytes) controller.error(new Error("too_large"));
+        else controller.enqueue(chunk);
+      },
+    }));
+    await pipeline(Readable.fromWeb(limited as never), createWriteStream(dest));
     return;
   }
   throw new Error("media storage is not configured");
@@ -217,7 +241,13 @@ export async function downloadToFile(key: string, dest: string): Promise<void> {
  */
 export function packageBaseUrl(): string | null {
   const d = driver();
-  if (d === "r2") return `${r2().publicBase}/packages`;
+  if (d === "r2") {
+    const base = r2().publicBase;
+    if (!process.env.BETTER_AUTH_URL || new URL(base).origin === new URL(process.env.BETTER_AUTH_URL).origin) {
+      throw new Error("Courseware must be hosted on a different origin from the app");
+    }
+    return `${base}/packages`;
+  }
   if (d === "local") return process.env.PACKAGE_ORIGIN ? `${process.env.PACKAGE_ORIGIN.replace(/\/+$/, "")}/pkg` : null;
   return null;
 }

@@ -6,18 +6,23 @@ import path from "node:path";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { auditLog, course, coursePackage, importJob } from "@/db/schema";
-import { type AnalysisReport, analyzeZip, extractZip } from "./import/analyze";
+import { type AnalysisReport, analyzeZip, extractZip, LIMITS } from "./import/analyze";
+import { packageByteLimit } from "@/lib/import-limits";
 import { launchPage, runtimeScript } from "./import/runtime";
 import { createUpload, downloadToFile, driver, packageBaseUrl, putObject, remove, type UploadTarget } from "./storage";
 
-export const MAX_PACKAGE_BYTES = 500 * 1024 * 1024;
+const isWorker = process.env.DEPLOY_TARGET === "cloudflare";
+export const MAX_PACKAGE_BYTES = packageByteLimit(isWorker);
+const analysisLimits = isWorker ? { ...LIMITS, maxEntries: 200, maxTotalBytes: 32 * 1024 ** 2, maxEntryBytes: 8 * 1024 ** 2, maxScanBytes: 256 * 1024 } : LIMITS;
 const rid = (p: string) => `${p}-${randomBytes(8).toString("hex")}`;
 
 export async function reserveImport(actorId: string, filename: string, size: number): Promise<{ ok: true; id: string; upload: UploadTarget } | { ok: false; message: string }> {
   if (driver() === "none") return { ok: false, message: "אחסון הקבצים עדיין לא הוגדר." };
   if (!/\.zip$/i.test(filename)) return { ok: false, message: "יש להעלות קובץ ZIP של הלומדה." };
   if (size <= 0) return { ok: false, message: "הקובץ ריק." };
-  if (size > MAX_PACKAGE_BYTES) return { ok: false, message: "הקובץ גדול מדי. הגודל המרבי לחבילה הוא 500MB." };
+  if (!Number.isSafeInteger(size) || size > MAX_PACKAGE_BYTES) return { ok: false, message: `הקובץ גדול מדי או שגודלו אינו תקין. הגודל המרבי לחבילה הוא ${MAX_PACKAGE_BYTES / 1024 ** 2}MB.` };
+  const base = packageBaseUrl();
+  if (!base) return { ok: false, message: "כתובת אחסון הלומדות טרם הוגדרה." };
   const id = rid("imp");
   const key = `imports/${id}.zip`;
   await db.insert(importJob).values({ id, filename: filename.slice(0, 200), sizeBytes: size, storageKey: key, createdBy: actorId });
@@ -57,10 +62,10 @@ export async function analyseImport(actorId: string, id: string): Promise<Import
   try {
     let report: AnalysisReport;
     try {
-      await downloadToFile(job.storageKey, file);
+      await downloadToFile(job.storageKey, file, MAX_PACKAGE_BYTES);
       const { size } = await stat(file);
       if (size !== job.sizeBytes || size > MAX_PACKAGE_BYTES) throw new Error("size");
-      report = await analyzeZip(file);
+      report = await analyzeZip(file, analysisLimits);
     } catch {
       report = { verdict: "unsupported", format: null, title: "", launchPath: null, rootPrefix: "", fileCount: 0, totalBytes: 0, scoCount: 0, externalHosts: [], skipped: [], tracking: "", items: [{ severity: "error", code: "UPLOAD", message: "הקובץ לא התקבל במלואו. נסו להעלות שוב." }] };
     }
