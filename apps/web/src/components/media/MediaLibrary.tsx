@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ACCEPT_ATTR, formatBytes, KIND_LABEL, type AssetKind } from "@/lib/media-policy";
+import { ACCEPT_ATTR, formatBytes, KIND_LABEL, maxMediaBytes, type AssetKind } from "@/lib/media-policy";
 
 export type { AssetKind };
 import { type AssetView, uploadFile } from "./upload";
@@ -93,7 +93,7 @@ export function MediaLibrary({
         >
           <p className="dropzone-title">גררו לכאן קבצים, או</p>
           <button type="button" className="btn btn-dark btn-sm" onClick={() => input.current?.click()}>בחירת קבצים מהמחשב</button>
-          <p className="muted dropzone-hint">תמונות JPG, PNG, WebP (עד 15MB) · סרטונים MP4, WebM (עד 1GB) · שמע MP3, M4A · כתוביות VTT</p>
+          <p className="muted dropzone-hint">תמונות JPG, PNG, WebP (עד {formatBytes(maxMediaBytes("image"))}) · סרטונים MP4, WebM (עד {formatBytes(maxMediaBytes("video"))}) · שמע MP3, M4A (עד {formatBytes(maxMediaBytes("audio"))}) · כתוביות VTT</p>
           <input ref={input} type="file" multiple hidden accept={ACCEPT_ATTR} aria-label="בחירת קבצים להעלאה" onChange={(e) => e.target.files && void handleFiles(e.target.files)} />
         </div>
       )}
