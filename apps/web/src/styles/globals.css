@@ -297,7 +297,8 @@ img { max-width: 100%; height: auto; display: block; }
 }
 
 /* ───────────── Tables ───────────── */
-.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+/* Keep absolutely positioned accessible table labels inside the RTL scrollport. */
+.table-wrap { position: relative; overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 .table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
 .table th, .table td { text-align: start; padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--border); vertical-align: middle; }
 .table thead th { font-size: var(--fs-xs); color: var(--text-muted); font-weight: 500; background: var(--surface-sunken); }
