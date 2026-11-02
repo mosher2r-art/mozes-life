@@ -186,8 +186,19 @@ export async function importChapters(actorId: string, files: { name: string; jso
   return out;
 }
 
-export async function exportChapter(id: string): Promise<ChapterFile | null> {
+export async function exportChapter(id: string) {
   const ch = await getChapter(id);
+  if (ch) {
+    const screens = ch.content.units[0]?.screens ?? [];
+    const scenes = screens.flatMap(screen => {
+      const components = Object.values(screen.slots).flat();
+      return components.length === 1 && components[0]?.type === "interactiveScene" ? [components[0].scene] : [];
+    });
+    if (scenes.length && scenes.length === screens.length) return {
+      format: "mozes-interactive-chapter" as const, version: 1 as const,
+      chapter: { name: ch.content.title, ...(screens[0]?.notes ? { description: screens[0].notes } : {}), pages: scenes },
+    };
+  }
   return ch ? toChapterFile(ch.content) : null;
 }
 
