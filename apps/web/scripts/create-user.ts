@@ -15,6 +15,7 @@ import { hashPassword } from "better-auth/crypto";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { postgresConfig } from "../src/db/postgres-config";
 import { isOrgRole, isPlatformRole } from "@mozes/authz";
 import * as schema from "../src/db/schema";
 
@@ -52,7 +53,7 @@ if (!password) {
 if (password.length < 10 || password.length > 128) fail("password must be 10–128 characters");
 
 const url = process.env.DATABASE_URL ?? fail("DATABASE_URL is not set");
-const pool = new Pool({ connectionString: url });
+const pool = new Pool(postgresConfig(url));
 const db = drizzle(pool, { schema });
 
 try {
