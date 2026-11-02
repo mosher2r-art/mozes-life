@@ -3,11 +3,12 @@ import { Pool, type PoolConfig } from "pg";
 /** Supavisor pools upstream connections. Workers must close local sockets after
  * each query/transaction rather than reuse sockets across requests.
  * A real Pool target preserves Drizzle's instanceof check for transactions. */
-export function workerPool(config: PoolConfig): Pool {
-  return new Proxy(new Pool(config), {
+export function workerPool(config: PoolConfig | (() => PoolConfig)): Pool {
+  const currentConfig = () => typeof config === "function" ? config() : config;
+  return new Proxy(new Pool(), {
     get(target, key, receiver) {
       if (key === "query") return async (...args: unknown[]) => {
-        const pool = new Pool({ ...config, max: 1 });
+        const pool = new Pool({ ...currentConfig(), max: 1 });
         try {
           return await Reflect.apply(pool.query, pool, args);
         } finally {
@@ -15,7 +16,7 @@ export function workerPool(config: PoolConfig): Pool {
         }
       };
       if (key === "connect") return async () => {
-        const pool = new Pool({ ...config, max: 1 });
+        const pool = new Pool({ ...currentConfig(), max: 1 });
         try {
           const client = await pool.connect();
           const release = client.release.bind(client);
