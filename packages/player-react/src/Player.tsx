@@ -17,6 +17,7 @@ import { AudioView, CalloutView, HeadingView, ImageView, RichTextView, VideoView
 import { type MediaResolver, PlayerContext, usePlayer } from "./context";
 import { IconBack, IconForward } from "./icons";
 import { ChoiceQuestionView, HotspotView, SequenceView, TrueFalseView } from "./questions";
+import { InteractiveSceneView } from "./InteractiveScene";
 
 /* ───────────── Component dispatch ───────────── */
 
@@ -31,6 +32,8 @@ function ButtonView({ c }: { c: Extract<Component, { type: "button" }> }) {
 
 export function ComponentView({ c, cover }: { c: Component; cover?: boolean }) {
   switch (c.type) {
+    case "interactiveScene":
+      return <InteractiveSceneView c={c} />;
     case "heading":
       return <HeadingView c={c} />;
     case "richText":
@@ -243,7 +246,8 @@ export function CoursePlayer({ course, resolveMedia, initialState, onStateChange
   const target = state.finished ? null : resolveTarget(course, state);
   const willFinish = target?.kind === "end" || (target?.kind === "next" && ref.index === flat.length - 1);
   const hasQuestions = screenComponents(screen).some(isQuestion);
-  const pendingReason = !ready && !state.finished ? (hasQuestions ? "יש לענות על השאלה כדי להמשיך" : "יש לצפות בסרטון כדי להמשיך") : null;
+  const hasScene = screenComponents(screen).some(c => c.type === "interactiveScene");
+  const pendingReason = !ready && !state.finished ? (hasScene ? "יש להשלים את האינטראקציות במסך כדי להמשיך" : hasQuestions ? "יש לענות על השאלה כדי להמשיך" : "יש לצפות בסרטון כדי להמשיך") : null;
 
   const ctx = {
     course,
