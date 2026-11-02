@@ -28,7 +28,7 @@ export const MEDIA_TEMPLATES: Partial<Record<TemplateId, ("image" | "video")[]>>
 /** Component types that need an uploaded file. */
 export const MEDIA_TYPES: ComponentType[] = ["image", "video", "audio", "hotspotImage"];
 /** Not yet authorable in the editor (needs the hotspot drawing tool). */
-export const UNSUPPORTED_TYPES: ComponentType[] = ["hotspotImage"];
+export const UNSUPPORTED_TYPES: ComponentType[] = ["hotspotImage", "interactiveScene"];
 
 export interface PickedMedia {
   id: string;
@@ -45,6 +45,7 @@ export function mediaComponent(m: PickedMedia, opts: { cover?: boolean } = {}): 
 }
 
 export const COMPONENT_LABEL: Record<ComponentType, string> = {
+  interactiveScene: "מסך אינטראקטיבי מיובא",
   heading: "כותרת",
   richText: "טקסט",
   callout: "הדגשה",
