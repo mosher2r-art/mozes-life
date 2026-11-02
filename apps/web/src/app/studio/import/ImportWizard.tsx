@@ -60,12 +60,21 @@ export function ImportWizard({ maxBytes }: { maxBytes: number }) {
     setProgress(null);
     setChecking(true);
     setStep(1);
-    const a = await fetch(`/api/studio/import/${r.id}/analyse`, { method: "POST" });
-    setChecking(false);
-    const view = (await a.json().catch(() => null)) as ImportView | null;
-    if (!a.ok || !view) return setError("בדיקת החבילה נכשלה.");
-    setJob(view);
-    setTitle(view.report?.title || file.name.replace(/\.zip$/i, ""));
+    try {
+      let view: ImportView | null = null;
+      // Large packages are extracted in bounded requests on Workers Free.
+      for (let batch = 0; batch < 8; batch++) {
+        const a = await fetch(`/api/studio/import/${r.id}/analyse`, { method: "POST" });
+        view = (await a.json().catch(() => null)) as ImportView | null;
+        if (!a.ok || !view) throw new Error("בדיקת החבילה נכשלה. נסו שוב.");
+        if (view.status !== "uploading") break;
+      }
+      if (!view || view.status === "uploading") throw new Error("בדיקת החבילה טרם הסתיימה. נסו שוב.");
+      setJob(view);
+      setTitle(view.report?.title || file.name.replace(/\.zip$/i, ""));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "בדיקת החבילה נכשלה.");
+    } finally { setChecking(false); }
   }
 
   async function createCourse() {
