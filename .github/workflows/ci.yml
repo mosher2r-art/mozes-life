@@ -40,6 +40,14 @@ jobs:
           PACKAGE_ORIGIN: http://127.0.0.1:3100
       - run: pnpm --filter @mozes/web exec playwright install --with-deps chromium webkit
       - run: pnpm e2e
+      - name: Preserve browser failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-failure-${{ github.sha }}
+          path: apps/web/test-results
+          retention-days: 1
+          if-no-files-found: ignore
       - name: Generate and verify standalone SQL
         run: |
           pnpm --filter @mozes/web sql:generate
