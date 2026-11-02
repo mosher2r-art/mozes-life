@@ -3,6 +3,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-24.04
@@ -35,5 +38,23 @@ jobs:
           BETTER_AUTH_URL: http://localhost:3000
           # Build-time CSP must allow the test package origin (see playwright.config.ts)
           PACKAGE_ORIGIN: http://127.0.0.1:3100
-      - run: pnpm --filter @mozes/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @mozes/web exec playwright install --with-deps chromium webkit
       - run: pnpm e2e
+      - name: Generate and verify standalone SQL
+        run: |
+          pnpm --filter @mozes/web sql:generate
+          git diff --exit-code -- supabase/fresh-install.sql
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE mozes_schema_test'
+          pnpm --filter @mozes/web sql:verify
+        env:
+          SQL_TEST_DATABASE_URL: postgres://mozes:mozes@localhost:5432/mozes_schema_test
+      - name: Build Worker and validate upload bundle without deployment
+        run: |
+          pnpm --filter @mozes/web build:worker
+          pnpm --filter @mozes/web exec wrangler deploy --dry-run --outdir .worker-dry-run
+        env:
+          DATABASE_URL: postgres://placeholder:placeholder@localhost:5432/placeholder
+          BETTER_AUTH_SECRET: ci-build-placeholder-secret-0123456789abcdef
+          BETTER_AUTH_URL: http://localhost:3000
+          PACKAGE_ORIGIN: http://127.0.0.1:3100
+          WRANGLER_SEND_METRICS: "false"
