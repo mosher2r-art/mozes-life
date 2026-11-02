@@ -48,6 +48,27 @@ describe("parseManifest", () => {
 });
 
 describe("analyzeZip", () => {
+  it("extracts a package over the Free subrequest limit in ordered batches without gaps or duplicate files", async () => {
+    const entries = Object.fromEntries(Array.from({ length: 70 }, (_, i) => [i === 0 ? "index.html" : `asset-${i}.js`, `content-${i}`]));
+    const file = zip("batched.zip", entries);
+    const report = await analyzeZip(file);
+    const written: string[] = [];
+    let offset = 0;
+    let bytes = 0;
+    for (let batch = 0; batch < 3; batch++) {
+      const result = await extractZip(file, report, async (name, stream) => {
+        let body = "";
+        for await (const chunk of stream) body += chunk.toString();
+        expect(body).toBe(entries[name]);
+        written.push(name);
+      }, { offset, limit: 32 });
+      expect(result.files).toBe(batch < 2 ? 32 : 6);
+      offset += result.files;
+      bytes += result.bytes;
+    }
+    expect(written).toEqual(Object.keys(entries));
+    expect(bytes).toBe(Object.values(entries).reduce((n, body) => n + Buffer.byteLength(body), 0));
+  });
   it("accepts a clean SCORM 1.2 package, including inside a top folder", async () => {
     const r = await analyzeZip(zip("ok.zip", { "course/imsmanifest.xml": MANIFEST_12, "course/index.html": "<title>x</title>", "course/app.js": "1" }));
     expect(r).toMatchObject({ verdict: "play_only", format: "scorm12", rootPrefix: "course/", launchPath: "course/index.html", title: "קורס מיובא" });
