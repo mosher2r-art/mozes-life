@@ -2,14 +2,15 @@
  * mozes-course v1 — the internal content format of MOZES LIFE.
  *
  * Hierarchy: Course → Unit → Screen → Component.
- * Layout is never free-form: each Screen uses a Template whose named slots decide
- * where components go (see templates.ts). The only positional data are hotspot
- * shapes, expressed in percentages of the image so they scale on every device.
+ * Authored screens use Templates with named slots (see templates.ts). Imported
+ * interactiveScene components additionally retain the percentage-based geometry
+ * of mozes-interactive-chapter files without changing existing template layouts.
  *
  * Rich text is stored as structured blocks (not HTML) so content can never carry
  * markup or script.
  */
 import { z } from "zod";
+import { ScenePage } from "./interactive";
 
 export const SCHEMA_ID = "mozes-course";
 export const SCHEMA_VERSION = 1;
@@ -220,6 +221,7 @@ export const SequenceTask = z
   .strict();
 
 export const Component = z.discriminatedUnion("type", [
+  z.object({ ...base, type: z.literal("interactiveScene"), scene: ScenePage }).strict(),
   Heading,
   RichText,
   Callout,
