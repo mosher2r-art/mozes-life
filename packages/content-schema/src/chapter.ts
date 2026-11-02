@@ -9,6 +9,7 @@
  */
 import { z } from "zod";
 import { Course, type CourseInput, SCHEMA_ID, SCHEMA_VERSION, Screen, UnitKind } from "./schema";
+import { InteractiveChapter } from "./interactive";
 
 export const CHAPTER_SCHEMA_ID = "mozes-chapter";
 
@@ -27,7 +28,7 @@ export type ChapterFile = z.infer<typeof ChapterFile>;
 export type ChapterFileInput = z.input<typeof ChapterFile>;
 
 /** Keys whose values are ids that may be referenced elsewhere in the same chapter. */
-const ID_KEYS = new Set(["id", "screenId", "componentId", "choice"]);
+const ID_KEYS = new Set(["id", "screenId", "componentId", "choice", "accept"]);
 
 /**
  * Returns a deep copy where every internal id (units, screens, components, options, hotspots,
@@ -103,6 +104,19 @@ export function toChapterFile(doc: Course): ChapterFile {
 export function readChapterFile(input: unknown): { ok: true; chapters: ChapterFile[] } | { ok: false; message: string } {
   if (!input || typeof input !== "object") return { ok: false, message: "הקובץ אינו JSON תקין של MOZES." };
   const kind = (input as { schema?: unknown }).schema;
+  if ((input as { format?: unknown }).format === "mozes-interactive-chapter") {
+    const r = InteractiveChapter.safeParse(input);
+    if (!r.success) return { ok: false, message: describe(r.error) };
+    return { ok: true, chapters: [{
+      schema: CHAPTER_SCHEMA_ID, schemaVersion: 1, title: r.data.chapter.name, kind: "lesson", description: r.data.chapter.description,
+      screens: r.data.chapter.pages.map((scene, index) => ({
+        id: `scene-screen-${index + 1}`, title: scene.title, template: "text", required: true,
+        slots: { body: [{ id: `scene-component-${index + 1}`, type: "interactiveScene", scene }] },
+        flow: { default: { kind: "next" }, rules: [] }, medical: { relevant: true },
+        ...(index === 0 && r.data.chapter.description ? { notes: r.data.chapter.description } : {}),
+      })),
+    }] };
+  }
   if (kind === CHAPTER_SCHEMA_ID) {
     const r = ChapterFile.safeParse(input);
     if (!r.success) return { ok: false, message: describe(r.error) };
@@ -117,7 +131,7 @@ export function readChapterFile(input: unknown): { ok: true; chapters: ChapterFi
     if (!chapters.length) return { ok: false, message: "בקורס שבקובץ אין מסכים." };
     return { ok: true, chapters };
   }
-  return { ok: false, message: 'הקובץ אינו פרק של MOZES (חסר "schema": "mozes-chapter").' };
+  return { ok: false, message: 'הקובץ אינו פרק של MOZES בפורמט מזוהה. נתמכים mozes-chapter, mozes-course ו־mozes-interactive-chapter.' };
 }
 
 function describe(e: z.ZodError): string {
