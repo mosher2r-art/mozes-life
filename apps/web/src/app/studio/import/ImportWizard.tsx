@@ -23,7 +23,7 @@ const VERDICT = { play_only: "נתמך להפעלה בלבד", partial: "נתמ�
 const FORMAT = { scorm12: "SCORM 1.2", scorm2004: "SCORM 2004", html5: "HTML5" } as const;
 const SEV = { error: "שגיאה", warning: "אזהרה", info: "מידע" } as const;
 
-export function ImportWizard() {
+export function ImportWizard({ maxBytes }: { maxBytes: number }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState(0);
@@ -106,7 +106,7 @@ export function ImportWizard() {
         >
           <p className="dropzone-title">גררו לכאן את קובץ ה-ZIP של הלומדה, או</p>
           <button type="button" className="btn btn-dark btn-sm" disabled={progress !== null} onClick={() => input.current?.click()}>בחירת קובץ</button>
-          <p className="muted dropzone-hint">SCORM 1.2 · SCORM 2004 · HTML5 · עד 500MB</p>
+          <p className="muted dropzone-hint">SCORM 1.2 · SCORM 2004 · HTML5 · עד {Math.floor(maxBytes / 1024 ** 2)}MB</p>
           <input ref={input} type="file" hidden accept=".zip,application/zip" aria-label="בחירת קובץ ZIP לייבוא" onChange={(e) => e.target.files?.[0] && void upload(e.target.files[0])} />
           {progress !== null && (
             <div className="uploads-bar wide" role="progressbar" aria-label="העלאת הלומדה" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>

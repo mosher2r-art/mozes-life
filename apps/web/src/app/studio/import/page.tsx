@@ -3,6 +3,7 @@ import { can } from "@mozes/authz";
 import { Forbidden } from "@/components/Forbidden";
 import { getCurrentUser } from "@/server/actor";
 import { driver } from "@/server/storage";
+import { MAX_PACKAGE_BYTES } from "@/server/importer";
 import { ImportWizard } from "./ImportWizard";
 
 export const metadata: Metadata = { title: "ייבוא לומדה" };
@@ -24,7 +25,7 @@ export default async function ImportPage() {
           <p className="muted">כדי לייבא לומדות צריך לחבר את Cloudflare R2. ההוראות נמצאות בקובץ DEPLOY.md במאגר.</p>
         </div>
       ) : (
-        <ImportWizard />
+        <ImportWizard maxBytes={MAX_PACKAGE_BYTES} />
       )}
     </div>
   );
