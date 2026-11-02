@@ -66,9 +66,10 @@ jobs:
           output = Path('release')
           output.mkdir(exist_ok=True)
           with zipfile.ZipFile(output / 'mozes-life-worker.zip', 'w', zipfile.ZIP_DEFLATED) as z:
-              for path in Path('apps/web/.open-next').rglob('*'):
-                  if path.is_file():
-                      z.write(path, str(path.relative_to('apps/web')))
+              for directory in ['.open-next', '.worker-dry-run']:
+                  for path in Path('apps/web', directory).rglob('*'):
+                      if path.is_file():
+                          z.write(path, str(path.relative_to('apps/web')))
               z.write('apps/web/wrangler.jsonc', 'wrangler.jsonc')
               z.write('supabase/fresh-install.sql', 'SUPABASE_DATABASE.sql')
               z.write('INSTALL_HE.md', 'INSTALL_HE.md')
