@@ -12,6 +12,8 @@ export const ResponseSchema = z.discriminatedUnion("type", [
 ]);
 
 export const PlayerEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("scene_advance"), componentId: Id }).strict(),
+  z.object({ type: z.literal("scene_drop"), componentId: Id, objectId: Id, targetId: Id }).strict(),
   z.object({ type: z.literal("answer"), componentId: Id, response: ResponseSchema }).strict(),
   z.object({ type: z.literal("media_progress"), componentId: Id, percent: z.number().min(0).max(100) }).strict(),
   z.object({ type: z.literal("continue") }).strict(),
