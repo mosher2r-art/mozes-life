@@ -1,5 +1,5 @@
 /** What may be uploaded to the media library, and how each type is recognised. */
-export type AssetKind = "image" | "video" | "audio" | "captions";
+export type AssetKind = "image" | "video" | "audio" | "captions" | "animation";
 
 export interface MediaType {
   mime: string;
@@ -15,6 +15,8 @@ const at = (b: Uint8Array, offset: number, sig: number[]) => sig.every((v, i) =>
 const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
 
 export const MEDIA_TYPES: MediaType[] = [
+  { mime: "application/json", ext: ["json"], kind: "animation", maxBytes: 5 * MB, magic: (b) => new TextDecoder().decode(b).replace(/^\uFEFF/, "").trimStart().startsWith("{") },
+  { mime: "application/zip", ext: ["lottie"], kind: "animation", maxBytes: 2 * MB, magic: (b) => at(b, 0, [0x50,0x4b,0x03,0x04]) },
   { mime: "image/jpeg", ext: ["jpg", "jpeg"], kind: "image", maxBytes: 15 * MB, magic: (b) => at(b, 0, [0xff, 0xd8, 0xff]) },
   { mime: "image/png", ext: ["png"], kind: "image", maxBytes: 15 * MB, magic: (b) => at(b, 0, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) },
   { mime: "image/webp", ext: ["webp"], kind: "image", maxBytes: 15 * MB, magic: (b) => at(b, 0, ascii("RIFF")) && at(b, 8, ascii("WEBP")) },
@@ -43,7 +45,7 @@ export function checkDeclared(filename: string, mime: string, size: number): Che
   const ext = filename.toLowerCase().split(".").pop() ?? "";
   const type = MEDIA_TYPES.find((t) => t.ext.includes(ext));
   if (!type) return { ok: false, message: "סוג הקובץ אינו נתמך. אפשר להעלות JPG, PNG, WebP, MP4, WebM, MP3, M4A או כתוביות VTT." };
-  if (mime && mime !== type.mime && !(type.kind === "captions" && (mime === "" || mime === "text/plain"))) {
+  if (mime && mime !== type.mime && !(type.kind === "captions" && (mime === "" || mime === "text/plain")) && !(type.kind === "animation" && mime === "application/octet-stream")) {
     return { ok: false, message: "סיומת הקובץ אינה תואמת את סוגו." };
   }
   if (size <= 0) return { ok: false, message: "הקובץ ריק." };
@@ -52,7 +54,7 @@ export function checkDeclared(filename: string, mime: string, size: number): Che
   return { ok: true, type };
 }
 
-export const KIND_LABEL: Record<AssetKind, string> = { image: "תמונה", video: "סרטון", audio: "קובץ שמע", captions: "כתוביות" };
+export const KIND_LABEL: Record<AssetKind, string> = { image: "תמונה", video: "סרטון", audio: "קובץ שמע", captions: "כתוביות", animation: "אנימציה" };
 
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
