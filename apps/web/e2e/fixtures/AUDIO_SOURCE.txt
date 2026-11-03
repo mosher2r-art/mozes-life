@@ -1,0 +1,4 @@
+Non-medical browser test audio only. Not included in published courses.
+MDN CC0 audio example: https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3
+Repository license: https://github.com/mdn/interactive-examples/blob/main/LICENSE
+SHA256: 41191d0727073bf848bcc8f0bd851d71a0b0058e901abb1c1b236ad327bda52e
