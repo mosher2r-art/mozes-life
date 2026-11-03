@@ -1,31 +1,18 @@
 import Image from "next/image";
+import type { CSSProperties } from "react";
 
-/**
- * Brand logo — both files are supplied by the brand owner; shapes and colours are untouched
- * (only transparent margins were trimmed).
- * - light surfaces: dark lettering on transparent background.
- * - dark surfaces: light (silver) lettering on transparent background.
- */
-export function Logo({
-  width = 240,
-  priority = false,
-  surface = "light",
-}: {
+/** Original dark logo on light surfaces; owner-supplied silver logo on dark surfaces. */
+export function Logo({ width = 240, priority = false, surface = "light", shine = false }: {
   width?: number;
   priority?: boolean;
   surface?: "dark" | "light";
+  shine?: boolean;
 }) {
   const dark = surface === "dark";
+  const src = dark ? "/brand/mozes-life-opening-logo.png" : "/brand/mozes-life-logo-transparent.webp";
   return (
-    <span className="logo">
-      <Image
-        src={dark ? "/brand/mozes-life-logo-light.webp" : "/brand/mozes-life-logo-transparent.webp"}
-        alt="MOZES LIFE — לומדים להציל חיים"
-        width={dark ? 1968 : 1992}
-        height={dark ? 395 : 416}
-        style={{ width, height: "auto" }}
-        priority={priority}
-      />
+    <span className={`logo${dark ? " logo-silver" : ""}${shine ? " logo-shine" : ""}`} style={{ width, "--logo-mask": `url("${src}")` } as CSSProperties}>
+      <Image src={src} alt="MOZES LIFE — לומדים להציל חיים" width={dark ? 2045 : 1992} height={dark ? 866 : 416} sizes={`${width}px`} style={{ width: "100%", height: "auto" }} priority={priority} />
     </span>
   );
 }
