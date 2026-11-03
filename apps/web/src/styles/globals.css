@@ -53,7 +53,7 @@ img { max-width: 100%; height: auto; display: block; }
 }
 .btn-sm { min-height: 36px; padding: 0 var(--sp-4); font-size: var(--fs-sm); }
 .btn-primary { background: var(--brand-green); color: var(--text-on-green); }
-.btn-primary:hover { background: #6a9c20; }
+.btn-primary:hover { background: #71a525; }
 .btn-dark { background: var(--ink); color: #fff; justify-self: start; }
 .btn-dark:hover { background: #1c2f39; }
 .btn-quiet { background: transparent; color: var(--text); border-color: var(--border); }
