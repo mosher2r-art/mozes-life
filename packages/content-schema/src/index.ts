@@ -3,3 +3,5 @@ export * from "./templates";
 export * from "./walk";
 export * from "./chapter";
 export * from "./interactive";
+export * from "./media";
+export * from "./vtt";

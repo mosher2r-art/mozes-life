@@ -8,12 +8,14 @@
  * Exchange format (import / export): "mozes-chapter" v1 — one chapter per file.
  */
 import { z } from "zod";
-import { Course, type CourseInput, SCHEMA_ID, SCHEMA_VERSION, Screen, UnitKind } from "./schema";
+import { Course, type CourseInput, SCHEMA_ID, SCHEMA_VERSION, UnitKind } from "./schema";
 import { InteractiveChapter } from "./interactive";
+import { Screen as ScreenV1 } from "./schema-v1";
+import { ChapterFileV2 } from "./schema-v2";
 
 export const CHAPTER_SCHEMA_ID = "mozes-chapter";
 
-export const ChapterFile = z
+export const ChapterFileV1 = z
   .object({
     schema: z.literal(CHAPTER_SCHEMA_ID),
     schemaVersion: z.literal(1),
@@ -21,9 +23,10 @@ export const ChapterFile = z
     kind: UnitKind.default("lesson"),
     /** Free text for authors; not shown to learners. */
     description: z.string().trim().max(2000).optional(),
-    screens: z.array(Screen).min(1, "בפרק אין מסכים").max(200),
+    screens: z.array(ScreenV1).min(1, "בפרק אין מסכים").max(200),
   })
   .strict();
+export const ChapterFile = z.discriminatedUnion("schemaVersion", [ChapterFileV1, ChapterFileV2]);
 export type ChapterFile = z.infer<typeof ChapterFile>;
 export type ChapterFileInput = z.input<typeof ChapterFile>;
 
@@ -74,15 +77,11 @@ export function remapIds<T>(value: T, fresh: (old: string) => string): T {
 
 /** A chapter stored in the bank is a single-unit course document, so every course tool works on it. */
 export function chapterDocument(id: string, unitId: string, file: ChapterFileInput): CourseInput {
-  return {
-    schema: SCHEMA_ID,
-    schemaVersion: SCHEMA_VERSION,
-    id,
-    title: file.title,
-    locale: "he",
-    settings: { navigation: "linear", completion: { requireAllRequiredScreens: true, passingScore: null } },
+  return Course.parse({
+    schema: SCHEMA_ID, schemaVersion: file.schemaVersion, id, title: file.title, locale: "he",
+    settings: { navigation: "linear", completion: { requireAllRequiredScreens: true, passingScore: null }, ...(file.schemaVersion === 2 && file.variables ? { variables: file.variables } : {}) },
     units: [{ id: unitId, title: file.title, kind: file.kind ?? "lesson", screens: file.screens }],
-  };
+  });
 }
 
 /** Exports a bank chapter (single-unit document) to the exchange format. */
@@ -90,11 +89,12 @@ export function toChapterFile(doc: Course): ChapterFile {
   const unit = doc.units[0];
   return {
     schema: CHAPTER_SCHEMA_ID,
-    schemaVersion: 1,
+    schemaVersion: doc.schemaVersion,
     title: doc.title,
     kind: unit?.kind ?? "lesson",
     screens: unit?.screens ?? [],
-  };
+    ...(doc.schemaVersion === 2 && doc.settings.variables ? { variables: doc.settings.variables } : {}),
+  } as ChapterFile;
 }
 
 /**
@@ -106,7 +106,7 @@ export function readChapterFile(input: unknown): { ok: true; chapters: ChapterFi
   const kind = (input as { schema?: unknown }).schema;
   if ((input as { format?: unknown }).format === "mozes-interactive-chapter") {
     const r = InteractiveChapter.safeParse(input);
-    if (!r.success) return { ok: false, message: describe(r.error) };
+    if (!r.success) return { ok: false, message: describe(r.error,input) };
     return { ok: true, chapters: [{
       schema: CHAPTER_SCHEMA_ID, schemaVersion: 1, title: r.data.chapter.name, kind: "lesson", description: r.data.chapter.description,
       screens: r.data.chapter.pages.map((scene, index) => ({
@@ -119,25 +119,29 @@ export function readChapterFile(input: unknown): { ok: true; chapters: ChapterFi
   }
   if (kind === CHAPTER_SCHEMA_ID) {
     const r = ChapterFile.safeParse(input);
-    if (!r.success) return { ok: false, message: describe(r.error) };
+    if (!r.success) return { ok: false, message: describe(r.error,input) };
     return { ok: true, chapters: [r.data] };
   }
   if (kind === SCHEMA_ID) {
     const r = Course.safeParse(input);
-    if (!r.success) return { ok: false, message: describe(r.error) };
+    if (!r.success) return { ok: false, message: describe(r.error,input) };
     const chapters = r.data.units
       .filter((u) => u.screens.length > 0)
-      .map((u): ChapterFile => ({ schema: CHAPTER_SCHEMA_ID, schemaVersion: 1, title: u.title, kind: u.kind, screens: u.screens }));
+      .map((u): ChapterFile => ({ schema: CHAPTER_SCHEMA_ID, schemaVersion: r.data.schemaVersion, title: u.title, kind: u.kind, screens: u.screens, ...(r.data.schemaVersion === 2 && r.data.settings.variables ? { variables: r.data.settings.variables } : {}) } as ChapterFile));
     if (!chapters.length) return { ok: false, message: "בקורס שבקובץ אין מסכים." };
     return { ok: true, chapters };
   }
   return { ok: false, message: 'הקובץ אינו פרק של MOZES בפורמט מזוהה. נתמכים mozes-chapter, mozes-course ו־mozes-interactive-chapter.' };
 }
 
-function describe(e: z.ZodError): string {
+function describe(e: z.ZodError,input?:unknown): string {
   const i = e.issues[0];
   if (!i) return "מבנה הקובץ אינו תקין.";
-  return `מבנה הקובץ אינו תקין: ${i.message}${i.path.length ? ` (במיקום ${i.path.join(".")})` : ""}`;
+  let title:string|undefined;
+  if(input && typeof input==="object" && "schemaVersion" in input && input.schemaVersion===2){
+    let value:unknown=input;for(const key of i.path){if(!value || typeof value!=="object")break;value=(value as Record<string,unknown>)[String(key)];if(key==="screens" && Array.isArray(value)){const index=i.path[i.path.indexOf(key)+1];const screen=typeof index==="number" ? value[index] as {title?:unknown}|undefined : undefined;if(typeof screen?.title==="string")title=screen.title;}}
+  }
+  return `${title ? `במסך ״${title}״: ` : ""}מבנה הקובץ אינו תקין: ${i.message}${i.path.length ? ` (במיקום ${i.path.join(".")})` : ""}`;
 }
 
 export interface ComposeInput {
@@ -150,17 +154,27 @@ export interface ComposeInput {
 
 /** Builds the learner-facing course document from chapters, in order. */
 export function composeCourse(input: ComposeInput): CourseInput {
-  return {
+  const variables: Record<string, string | number | boolean> = {};
+  const units = input.chapters.map((chapter, chapterIndex) => {
+    const doc = structuredClone(chapter.doc), unit = doc.units[0];
+    if (doc.schemaVersion === 2) {
+      const names = new Map<string, string>();
+      Object.entries(doc.settings.variables ?? {}).forEach(([key, value], index) => { const name = `v-${chapterIndex + 1}-${index + 1}`; names.set(key, name); variables[name] = value; });
+      for (const screen of unit?.screens ?? []) {
+        for (const rule of screen.flow.rules) if ("variable" in rule.when) rule.when.variable = names.get(rule.when.variable) ?? rule.when.variable;
+        for (const component of Object.values(screen.slots).flat()) if (component.type === "choiceQuestion") for (const option of component.options) if (option.setVariables) option.setVariables = Object.fromEntries(Object.entries(option.setVariables).map(([key, value]) => [names.get(key) ?? key, value]));
+      }
+    }
+    return { id: unit?.id ?? `u-${doc.id}`, title: chapter.title, kind: chapter.kind, screens: unit?.screens ?? [] };
+  });
+  return Course.parse({
     schema: SCHEMA_ID,
-    schemaVersion: SCHEMA_VERSION,
+    schemaVersion: input.chapters.some(ch => ch.doc.schemaVersion === 2) ? 2 : SCHEMA_VERSION,
     id: input.id,
     title: input.title,
     locale: "he",
-    settings: { navigation: "linear", completion: { requireAllRequiredScreens: true, passingScore: input.passingScore } },
-    units: input.chapters.map((c) => {
-      const unit = c.doc.units[0];
-      return { id: unit?.id ?? `u-${c.doc.id}`, title: c.title, kind: c.kind, screens: unit?.screens ?? [] };
-    }),
-  };
+    settings: { navigation: "linear", completion: { requireAllRequiredScreens: true, passingScore: input.passingScore }, ...(Object.keys(variables).length ? { variables } : {}) },
+    units,
+  });
 }
 
