@@ -1,10 +1,11 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import type { ComponentOf, QuestionComponent } from "@mozes/content-schema";
+import type { ComponentOf, QuestionComponent, ChoiceOptionV2 } from "@mozes/content-schema";
 import type { Response } from "@mozes/player-core";
 import { MissingMedia } from "./content";
 import { usePlayer } from "./context";
+import { PlaceholderView } from "./content-v2";
 import { IconCheck, IconCheckCircle, IconDown, IconUp, IconX, IconXCircle } from "./icons";
 
 const KEYS = ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח"];
@@ -77,10 +78,11 @@ function SubmitBar({ disabled, resolved, label = "בדיקה" }: { disabled: boo
 /* ───────────── Choice ───────────── */
 
 export function ChoiceQuestionView({ q }: { q: ComponentOf<"choiceQuestion"> }) {
+  const { course, resolveMedia } = usePlayer();
   const { qs, resolved, revealCorrect, submit } = useQuestion(q);
   const name = useId();
   const [selected, setSelected] = useState<string[]>([]);
-  const options = useMemo(() => (q.shuffle ? seededShuffle(q.options, q.id) : q.options), [q]);
+  const options = useMemo<ChoiceOptionV2[]>(() => (q.shuffle ? seededShuffle(q.options, q.id) : q.options), [q]);
   const last = qs?.lastResponse?.type === "choiceQuestion" ? qs.lastResponse.optionIds : [];
   const optionFeedback = q.options.filter((o) => last.includes(o.id) && o.feedback).map((o) => o.feedback!);
 
@@ -114,7 +116,7 @@ export function ChoiceQuestionView({ q }: { q: ComponentOf<"choiceQuestion"> }) 
                 <span className={`mp-key${q.mode === "multiple" ? " is-check" : ""}`} aria-hidden="true">
                   {q.mode === "multiple" && isSel ? <IconCheck className="mp-option-mark" /> : KEYS[idx]}
                 </span>
-                <span className="mp-option-text">{o.text}</span>
+                <span className="mp-option-text">{course.schemaVersion === 2 && "image" in o && o.image && (() => { const media = resolveMedia(o.image); return media ? <img className="mp-option-image" src={media.src} alt={o.imageAlt ?? ""} loading="lazy" /> : <PlaceholderView media={o.image} />; })()}{o.text}</span>
                 {mark === "correct" && (
                   <>
                     <IconCheck className="mp-option-mark" />
@@ -184,7 +186,7 @@ export function TrueFalseView({ q }: { q: ComponentOf<"trueFalse"> }) {
 /* ───────────── Hotspots ───────────── */
 
 export function HotspotView({ q }: { q: ComponentOf<"hotspotImage"> }) {
-  const { resolveMedia } = usePlayer();
+  const { resolveMedia, course } = usePlayer();
   const { qs, resolved, revealCorrect, submit } = useQuestion(q);
   const [selected, setSelected] = useState<string[]>([]);
   const m = resolveMedia(q.media);
@@ -231,8 +233,9 @@ export function HotspotView({ q }: { q: ComponentOf<"hotspotImage"> }) {
           })}
         </div>
       ) : (
-        <MissingMedia />
+        course.schemaVersion === 2 ? <PlaceholderView media={q.media} /> : <MissingMedia />
       )}
+      {course.schemaVersion === 2 && <div className="mp-hotspot-alternative" aria-label="רשימת אזורים נגישה">{q.hotspots.map(h => <button type="button" className="mp-btn mp-btn-secondary" key={h.id} disabled={resolved} aria-pressed={shown.includes(h.id)} onClick={() => toggle(h.id)}>{h.label}</button>)}</div>}
       {!resolved && q.mode === "all" && (
         <p className="mp-hotspot-count" aria-live="polite">
           {selected.length === 0 ? "לא סומנו אזורים" : selected.length === 1 ? "סומן אזור אחד" : `סומנו ${selected.length} אזורים`}

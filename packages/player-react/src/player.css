@@ -289,3 +289,38 @@ fieldset:disabled .mp-option:not(.is-correct):not(.is-incorrect) { opacity: 0.55
 @keyframes mp-scene-pulse { 50% { transform: scale(1.025); } }
 .mp-scene-pulse { animation: mp-scene-pulse 2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .mp-scene-object { transition: none !important; } .mp-scene-pulse { animation: none; } }
+/* Schema v2 additions are scoped so existing v1 presentation stays unchanged. */
+.mp-asset-placeholder { border: 2px dashed var(--mp-line-strong); border-radius: var(--mp-radius); padding: 24px; display: grid; gap: 8px; text-align: center; color: var(--mp-text); }
+.mp-image-zoom { display: block; width: 100%; padding: 0; border: 0; background: transparent; cursor: zoom-in; border-radius: inherit; }
+.mp-image-dialog { max-width: 95vw; max-height: 95dvh; background: var(--mp-canvas); color: var(--mp-text); border: 1px solid var(--mp-line-strong); border-radius: var(--mp-radius); padding: 16px; }
+.mp-image-dialog::backdrop { background: rgb(0 0 0 / .8); }
+.mp-image-dialog img { max-width: 90vw; max-height: 78dvh; object-fit: contain; margin: 12px auto; }
+.mp-credit { font-size: .85rem; color: var(--mp-text-dim); margin-block: 8px; }
+.mp-reveal, .mp-explore, .mp-simulation { display: grid; gap: 12px; }
+.mp-reveal-item { border: 1px solid var(--mp-line-strong); border-radius: var(--mp-radius); overflow: hidden; }
+.mp-reveal-item > button { display: flex; justify-content: space-between; width: 100%; min-height: 48px; padding: 12px 16px; color: var(--mp-text); font: inherit; font-weight: 700; border: 0; background: var(--mp-raised); cursor: pointer; text-align: start; }
+.mp-reveal-item > div:not([hidden]) { padding: 16px; }
+.mp-reveal-item > button:disabled { opacity: .6; cursor: default; }
+.mp-hotspot-canvas { position: relative; }
+.mp-hotspot-canvas > img { width: 100%; height: auto; display: block; }
+.mp-explore-region { position: absolute; min-width: 44px; min-height: 44px; border: 2px solid var(--mp-accent); background: rgb(119 174 38 / .18); cursor: pointer; }
+.mp-hotspot-alternative { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 12px; }
+.mp-explore-detail { border: 1px solid var(--mp-line-strong); border-radius: var(--mp-radius); padding: 16px; }
+.mp-player-v2 .mp-hotspot { min-width: 44px; min-height: 44px; }
+.mp-player-v2 .mp-icon-btn { min-width: 44px; min-height: 44px; }
+.mp-option-image { max-width: 220px; max-height: 150px; object-fit: contain; display: block; margin-block-end: 8px; }
+.mp-simulation-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mp-narration { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--mp-line-strong); border-radius: var(--mp-radius); margin-block-end: 16px; }
+.mp-narration label { display: flex; gap: 8px; align-items: center; }
+.mp-narration audio { width: 100%; }
+.mp-narration-wait { min-height: 12px; }
+.mp-animation { display: grid; gap: 10px; }
+.mp-animation > div { min-height: 100px; max-height: 60dvh; }
+.mp-animation svg, .mp-animation video { width: 100%; max-height: 60dvh; }
+.mp-embed-frame { aspect-ratio: 16/9; width: 100%; }
+.mp-embed-frame > div, .mp-embed-frame iframe { width: 100%; height: 100%; border: 0; }
+.mp-caption-control { display: grid; gap: 8px; margin-block: 8px; }
+.mp-caption-control select { min-height: 44px; font: inherit; }
+.mp-live-caption { white-space: pre-line; background: #000; color: #fff; padding: 8px 12px; text-align: center; font-size: 1.1rem; }
+.mp-drag-handle { touch-action: none; cursor: grab; }
+@media (max-width: 500px) { .mp-player-v2 .mp-seq-item { flex-wrap: wrap; } .mp-player-v2 .mp-seq-actions { margin-inline-start: auto; } }

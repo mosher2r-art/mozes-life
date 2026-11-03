@@ -7,6 +7,11 @@ import type { PlayerEvent, PlayerState } from "@mozes/player-core";
 export interface ResolvedMedia {
   src: string;
   mime?: string;
+  creditText?: string;
+  width?: number;
+  height?: number;
+  durationMs?: number;
+  embed?: { provider: "youtube" | "vimeo"; videoId: string; hash?: string };
 }
 
 /** The host app decides where media lives (library, CDN, signed URLs). */

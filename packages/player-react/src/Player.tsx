@@ -18,6 +18,10 @@ import { type MediaResolver, PlayerContext, usePlayer } from "./context";
 import { IconBack, IconForward } from "./icons";
 import { ChoiceQuestionView, HotspotView, SequenceView, TrueFalseView } from "./questions";
 import { InteractiveSceneView } from "./InteractiveScene";
+import { ImageV2View, RevealView, HotspotExploreView, SimulationView, NarratedBlock } from "./content-v2";
+import { VideoV2View, AudioV2View } from "./media-v2";
+import { AnimationView, NarrationView } from "./animation-narration";
+import { SequenceV2View } from "./sequence-v2";
 
 /* ───────────── Component dispatch ───────────── */
 
@@ -31,7 +35,18 @@ function ButtonView({ c }: { c: Extract<Component, { type: "button" }> }) {
 }
 
 export function ComponentView({ c, cover }: { c: Component; cover?: boolean }) {
+  const { course } = usePlayer();
+  if (course.schemaVersion === 2) {
+    if (c.type === "image") return <ImageV2View c={c} cover={cover} />;
+    if (c.type === "video") return <VideoV2View c={c} cover={cover} />;
+    if (c.type === "audio") return <AudioV2View c={c} />;
+    if (c.type === "sequenceTask") return <SequenceV2View q={c} />;
+  }
   switch (c.type) {
+    case "animation": return <AnimationView c={c} />;
+    case "reveal": return <RevealView c={c} />;
+    case "hotspotExplore": return <HotspotExploreView c={c} />;
+    case "simulation": return <SimulationView c={c} />;
     case "interactiveScene":
       return <InteractiveSceneView c={c} />;
     case "heading":
@@ -56,6 +71,7 @@ export function ComponentView({ c, cover }: { c: Component; cover?: boolean }) {
       return <HotspotView q={c} />;
     case "sequenceTask":
       return <SequenceView q={c} />;
+    default: throw new Error("רכיב לא מוכר בנגן; התוכן לא הוצג כדי למנוע השמטה שקטה.");
   }
 }
 
@@ -65,7 +81,7 @@ function Slot({ screen, id, className, cover }: { screen: Screen; id: string; cl
   return (
     <div className={`mp-slot mp-slot-${id}${className ? ` ${className}` : ""}`}>
       {items.map((c) => (
-        <ComponentView key={c.id} c={c} cover={cover} />
+        <NarratedBlock key={c.id} componentId={c.id} screen={screen}><ComponentView c={c} cover={cover} /></NarratedBlock>
       ))}
     </div>
   );
@@ -74,7 +90,7 @@ function Slot({ screen, id, className, cover }: { screen: Screen; id: string; cl
 /* ───────────── Templates ───────────── */
 
 function ScenarioScreen({ screen }: { screen: Screen }) {
-  const { revealed, reveal, state } = usePlayer();
+  const { revealed, reveal, state, course } = usePlayer();
   const media = screen.slots.media?.[0];
   const decision = screen.slots.decision?.[0];
   // Images reveal immediately; videos reveal at their pause point or at the end.
@@ -82,7 +98,7 @@ function ScenarioScreen({ screen }: { screen: Screen }) {
   const show = revealed || alreadyAnswered || media?.type !== "video";
   return (
     <div className="mp-tpl mp-tpl-scenario">
-      {media?.type === "video" ? <VideoView c={media} onPausePoint={reveal} /> : media && <ComponentView c={media} />}
+      {media?.type === "video" ? (course.schemaVersion === 2 ? <VideoV2View c={media} onPausePoint={reveal} /> : <VideoView c={media} onPausePoint={reveal} />) : media && <ComponentView c={media} />}
       <Slot screen={screen} id="intro" />
       {show ? (
         <Slot screen={screen} id="decision" />
@@ -134,7 +150,7 @@ function SummaryScreen({ screen }: { screen: Screen }) {
   );
 }
 
-function ScreenBody({ screen }: { screen: Screen }) {
+function ScreenBodyContent({ screen }: { screen: Screen }) {
   switch (screen.template) {
     case "cinematic_intro":
       return (
@@ -154,6 +170,7 @@ function ScreenBody({ screen }: { screen: Screen }) {
           <Slot screen={screen} id="body" />
         </div>
       );
+    case "decision":
     case "scenario":
       return <ScenarioScreen screen={screen} />;
     case "summary":
@@ -167,6 +184,12 @@ function ScreenBody({ screen }: { screen: Screen }) {
         </div>
       );
   }
+}
+
+function ScreenBody({ screen }: { screen: Screen }) {
+  const { course } = usePlayer();
+  if (course.schemaVersion === 1) return <ScreenBodyContent screen={screen} />;
+  return <><NarrationView screen={screen} /><ScreenBodyContent screen={screen} /></>;
 }
 
 /* ───────────── Shell ───────────── */
@@ -192,6 +215,7 @@ const EYEBROW: Record<Screen["template"], string> = {
   video: "וידאו",
   question: "שאלה",
   scenario: "תרחיש",
+  decision: "החלטה בתרחיש",
   hotspot: "משימה",
   sequence: "משימה",
   summary: "סיכום",
@@ -260,7 +284,7 @@ export function CoursePlayer({ course, resolveMedia, initialState, onStateChange
 
   return (
     <PlayerContext.Provider value={ctx}>
-      <div className="mp-player" dir="rtl" lang="he">
+      <div className={course.schemaVersion === 2 ? "mp-player mp-player-v2" : "mp-player"} dir="rtl" lang="he">
         <header className="mp-topbar">
           <div className="mp-topbar-row">
             <span className="mp-course-title">{course.title}</span>

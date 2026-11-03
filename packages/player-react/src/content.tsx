@@ -102,7 +102,7 @@ export function VideoView({
   const lastSent = useRef(0);
   const src = resolveMedia(c.media);
   const poster = c.poster ? resolveMedia(c.poster) : null;
-  const captions = c.captions ? resolveMedia(c.captions) : null;
+  const captions = c.captions && !Array.isArray(c.captions) ? resolveMedia(c.captions) : null;
 
   useEffect(() => {
     paused.current = false;
