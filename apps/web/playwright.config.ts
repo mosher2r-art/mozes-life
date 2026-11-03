@@ -1,7 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { createRequire } from "node:module";
 
 const PORT = 3100;
 const TEST_DB = process.env.TEST_DATABASE_URL ?? "postgres://mozes:mozes@localhost:5432/mozes_life_test";
+const nextBin=createRequire(import.meta.url).resolve("next/dist/bin/next");
 
 export default defineConfig({
   testDir: "./e2e",
@@ -17,7 +19,7 @@ export default defineConfig({
     { name: "iphone", use: { ...devices["iPhone 13"] } },
   ],
   webServer: process.env.E2E_EXTERNAL_SERVER === "1" ? undefined : {
-    command: `pnpm exec next start -p ${PORT}`,
+    command: `"${process.execPath}" "${nextBin}" start -p ${PORT} -H 127.0.0.1`,
     url: `http://localhost:${PORT}/api/health`,
     reuseExistingServer: false,
     timeout: 60_000,
@@ -28,7 +30,7 @@ export default defineConfig({
       NODE_ENV: "production",
       AUTH_SIGNIN_RATE_LIMIT_PER_MIN: "200", // many logins from one IP during the suite
       MEDIA_DRIVER: "local",
-      MEDIA_LOCAL_DIR: "test-results/.media",
+      MEDIA_LOCAL_DIR: process.env.TEST_MEDIA_LOCAL_DIR ?? "test-results/.media",
       // Imported packages are served from a different origin (127.0.0.1 vs localhost).
       PACKAGE_ORIGIN: `http://127.0.0.1:${PORT}`,
     },

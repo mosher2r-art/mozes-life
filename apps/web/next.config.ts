@@ -16,13 +16,13 @@ const packageOrigin = process.env.PACKAGE_ORIGIN ? new URL(process.env.PACKAGE_O
 // TODO(security): move script-src to per-request nonces to drop 'unsafe-inline'.
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  `script-src 'self' 'unsafe-inline' https://www.youtube.com https://s.ytimg.com https://player.vimeo.com${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${mediaPublic}`.trim(),
   "font-src 'self'",
   `connect-src 'self' ${mediaUpload}`.trim(),
   `media-src 'self' blob: ${mediaPublic}`.trim(),
-  packageOrigin ? `frame-src ${packageOrigin}` : "frame-src 'none'",
+  `frame-src https://www.youtube-nocookie.com https://player.vimeo.com ${packageOrigin ?? ""}`.trim(),
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",

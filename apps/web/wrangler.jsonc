@@ -6,6 +6,6 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
   "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "d09cffe7a69c407c84665170969a7d0b" }],
-  "vars": { "DEPLOY_TARGET": "cloudflare", "NEXTJS_ENV": "production" },
+  "vars": { "DEPLOY_TARGET": "cloudflare", "NEXTJS_ENV": "production", "S3_PRIVATE_BUCKET": "mozes-private" },
   "observability": { "enabled": true }
 }
