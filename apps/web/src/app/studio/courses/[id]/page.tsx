@@ -11,7 +11,7 @@ import { getCurrentUser } from "@/server/actor";
 import { listChapters } from "@/server/chapters";
 import type { AnalysisReport } from "@/server/import/analyze";
 import { launchUrlFor } from "@/server/importer";
-import { resolveAssets } from "@/server/media";
+import { resolveVersionedAssets as resolveAssets } from "@/server/media-v2";
 import { getCourseBuilder, getPackageCourse } from "@/server/studio-courses";
 
 export const metadata: Metadata = { title: "בניית קורס" };
