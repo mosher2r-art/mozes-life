@@ -1,4 +1,5 @@
 "use client";
+import type { ResolvedMedia } from "@mozes/player-react";
 
 import "@mozes/player-react/player.css";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -26,10 +27,10 @@ export function LearnPlayer({
   enrollmentId: string;
   course: Course;
   initialState: PlayerState;
-  media: Record<string, { src: string; mime: string }>;
+  media: Record<string, ResolvedMedia>;
 }) {
   // Library files first; the built-in demo assets remain available for the demo course.
-  const resolveMedia: MediaResolver = useCallback((ref) => media[ref.assetId] ?? DEMO_MEDIA[ref.assetId] ?? null, [media]);
+  const resolveMedia: MediaResolver = useCallback((ref) => ref.assetId ? media[ref.assetId] ?? DEMO_MEDIA[ref.assetId] ?? null : null, [media]);
   const [save, setSave] = useState<Save>("idle");
   const [resync, setResync] = useState<{ key: number; state: PlayerState }>({ key: 0, state: initialState });
   const queue = useRef<PlayerEvent[]>([]);
