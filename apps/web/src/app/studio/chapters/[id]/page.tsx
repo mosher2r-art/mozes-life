@@ -6,7 +6,7 @@ import { Forbidden } from "@/components/Forbidden";
 import { collectAssetIds } from "@/lib/collect-assets";
 import { getCurrentUser } from "@/server/actor";
 import { getChapter } from "@/server/chapters";
-import { resolveAssets } from "@/server/media";
+import { resolveVersionedAssets as resolveAssets } from "@/server/media-v2";
 
 export const metadata: Metadata = { title: "עריכת פרק" };
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export default async function ChapterPage({ params }: { params: Promise<{ id: st
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) notFound();
   const ch = await getChapter(id);
   if (!ch) notFound();
-  const media = await resolveAssets(collectAssetIds(ch.content));
+  const media = await resolveAssets(collectAssetIds(ch.content), ch.draftAssetPins ?? {});
   return (
     <ChapterEditor
       chapterId={ch.id}
@@ -27,6 +27,8 @@ export default async function ChapterPage({ params }: { params: Promise<{ id: st
       usedIn={ch.usedIn}
       canEdit={can(user?.actor, "course.edit")}
       canManageMedia={can(user?.actor, "media.manage")}
+      canReview={can(user?.actor,"medical.review")}
+      canPublish={can(user?.actor,"course.publish")}
       media={media}
     />
   );
