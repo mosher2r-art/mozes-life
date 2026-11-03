@@ -1,16 +1,20 @@
 "use client";
+import type { ResolvedMedia } from "@mozes/player-react";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { type Component, type ComponentType, type Course, type FlowTarget, TEMPLATES, type TemplateId } from "@mozes/content-schema";
+import { type Component, type ComponentType, type Course, type FlowTarget, upgradeDraftToV2, TEMPLATES, type TemplateId } from "@mozes/content-schema";
 import type { MediaResolver } from "@mozes/player-react";
-import { TECHNICAL_ONLY_NOTICE, validateCourse } from "@mozes/validator";
+import { TECHNICAL_ONLY_NOTICE, validateCourse, type Issue } from "@mozes/validator";
 import { MediaLibrary } from "@/components/media/MediaLibrary";
 import type { AssetView } from "@/components/media/upload";
 import { DEMO_MEDIA } from "@/content/demo-course";
 import { ComponentForm, Field, TargetSelect } from "./ComponentForm";
 import { PreviewDialog } from "./PreviewDialog";
 import * as ops from "./ops";
+import { ScreenV2Settings } from "./ScreenV2Settings";
+import { ScenarioEditor } from "./ScenarioEditor";
+import { ChapterPublicationTools } from "./ChapterPublicationTools";
 
 type Save = "saved" | "dirty" | "saving" | "offline" | "conflict" | "invalid";
 const SAVE_TEXT: Record<Save, string> = {
@@ -29,8 +33,10 @@ export interface ChapterEditorProps {
   usedIn: { id: string; title: string }[];
   canEdit: boolean;
   canManageMedia: boolean;
+  canReview?: boolean;
+  canPublish?: boolean;
   /** assetId → URL for files the chapter already uses. */
-  media: Record<string, { src: string; mime?: string }>;
+  media: Record<string, ResolvedMedia>;
 }
 
 type MediaKind = AssetView["kind"];
@@ -49,19 +55,23 @@ export function ChapterEditor(props: ChapterEditorProps) {
 
   const unit = doc.units[0]!;
   const [screenId, setScreenId] = useState<string | null>(unit.screens[0]?.id ?? null);
+  const initialScreens=useRef(unit.screens);
+  useEffect(()=>{const requested=new URLSearchParams(window.location.search).get("screen");if(requested && initialScreens.current.some(s=>s.id===requested))setScreenId(requested);},[]);
   const [openComp, setOpenComp] = useState<string | null>(null);
   const [panel, setPanel] = useState<"screen" | "issues">("screen");
   const [adding, setAdding] = useState(false);
+  const dragging=useRef<{source:string;target:string}|null>(null);
+  const [draggingScreen,setDraggingScreen]=useState<string|null>(null),[screenAnnouncement,setScreenAnnouncement]=useState(""),[templateMessage,setTemplateMessage]=useState("");
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
 
   /* ───────── media ───────── */
   const [mediaMap, setMediaMap] = useState(props.media);
-  const resolveMedia: MediaResolver = useCallback((ref) => mediaMap[ref.assetId] ?? DEMO_MEDIA[ref.assetId] ?? null, [mediaMap]);
+  const resolveMedia: MediaResolver = useCallback((ref) => ref.assetId ? mediaMap[ref.assetId] ?? DEMO_MEDIA[ref.assetId] ?? null : null, [mediaMap]);
   const [picker, setPicker] = useState<{ kinds: MediaKind[]; title: string; onPick: (a: AssetView) => void } | null>(null);
   const pickMedia = useCallback((kinds: MediaKind[], title: string, onPick: (a: AssetView) => void) => setPicker({ kinds, title, onPick }), []);
   const picked = (a: AssetView) => {
-    setMediaMap((m) => ({ ...m, [a.id]: { src: a.url, mime: a.mime } }));
+    setMediaMap((m) => ({ ...m, [a.id]: { src: a.url, mime: a.mime, ...a.metadata } }));
     const p = picker;
     setPicker(null);
     p?.onPick(a);
@@ -112,6 +122,9 @@ export function ChapterEditor(props: ChapterEditorProps) {
   const [save, setSave] = useState<Save>("saved");
   const [saveMsg, setSaveMsg] = useState("");
   const revision = useRef(props.revision);
+  const [savedRevision,setSavedRevision]=useState(props.revision);
+  const [serverValidation,setServerValidation]=useState<{revision:number;issues:Issue[]}|null>(null);
+  const receiveIssues=useCallback((issues:Issue[],revision:number,media?:Record<string,ResolvedMedia>)=>{setServerValidation({issues,revision});if(media)setMediaMap(media);},[]);
   const savedDoc = useRef<Course>(props.initial);
   const inflight = useRef(false);
   const retry = useRef(0);
@@ -133,6 +146,7 @@ export function ChapterEditor(props: ChapterEditorProps) {
       inflight.current = false;
       if (res.ok) {
         revision.current = ((await res.json()) as { revision: number }).revision;
+        setSavedRevision(revision.current);
         savedDoc.current = sending;
         retry.current = 0;
         if (docRef.current === sending) { setSave("saved"); return true; }
@@ -173,7 +187,8 @@ export function ChapterEditor(props: ChapterEditorProps) {
 
   /* ───────── derived ───────── */
   const validation = useMemo(() => validateCourse(doc), [doc]);
-  const problems = validation.issues.filter((i) => i.severity !== "info");
+  const currentIssues=doc===savedDoc.current && serverValidation?.revision===savedRevision ? serverValidation.issues : validation.issues;
+  const problems = currentIssues.filter((i) => i.severity !== "info");
   const errors = problems.filter((i) => i.severity === "error");
   const issuesByScreen = useMemo(() => {
     const m = new Map<string, number>();
@@ -187,8 +202,8 @@ export function ChapterEditor(props: ChapterEditorProps) {
   /* ───────── helpers ───────── */
   const ro = !canEdit;
   const patchScreen = (fn: Parameters<typeof ops.updateScreen>[2], key: string) => selected && commit(ops.updateScreen(doc, selected.id, fn), key);
-  const setTitle = (title: string) => commit({ ...doc, title, units: [{ ...unit, title }] }, "chapter.title");
-  const setKind = (kind: "lesson" | "exam") => commit({ ...doc, units: [{ ...unit, kind }] });
+  const setTitle = (title: string) => commit(ops.renameChapter(doc, title), "chapter.title");
+  const setKind = (kind: "lesson" | "exam") => commit(ops.setChapterKind(doc, kind));
   const select = (id: string) => { setScreenId(id); setPanel("screen"); setOpenComp(null); setConfirmDel(null); };
   const addScreen = (t: TemplateId, media?: AssetView) => {
     const r = ops.addScreen(docRef.current, unit.id, t, media);
@@ -232,6 +247,8 @@ export function ChapterEditor(props: ChapterEditorProps) {
           : "הפרק עדיין לא משובץ באף קורס."}
       </p>
 
+      <ChapterPublicationTools chapterId={chapterId} revision={savedRevision} schemaVersion={doc.schemaVersion} selected={selected} dirty={displayedSave!=="saved"} canReview={props.canReview ?? false} canPublish={props.canPublish ?? false} canEdit={canEdit} flush={flush} upgrade={()=>commit(upgradeDraftToV2(doc))} onIssues={receiveIssues} selectScreen={select} />
+      <ScenarioEditor course={doc} screen={selected} onChange={next=>commit(next)} patchScreen={patchScreen} disabled={ro} selectScreen={select} />
       <div className="ed-body ed-body-2">
         {/* ───── Screens (right) ───── */}
         <nav className="ed-tree" aria-label="מסכי הפרק">
@@ -242,7 +259,8 @@ export function ChapterEditor(props: ChapterEditorProps) {
           {unit.screens.length === 0 && <p className="ef-hint">עדיין אין מסכים. הוסיפו את המסך הראשון.</p>}
           <ol className="ed-screens">
             {unit.screens.map((s, si) => (
-              <li key={s.id} className={s.id === screenId ? "is-selected" : ""}>
+              <li key={s.id} data-screen-id={s.id} className={`${s.id === screenId ? "is-selected" : ""}${draggingScreen===s.id ? " is-dragging" : ""}`}>
+                {!ro && <button type="button" className="ed-screen-drag" aria-label={`גרירת מסך: ${s.title}`} onPointerDown={e=>{e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);dragging.current={source:s.id,target:s.id};setDraggingScreen(s.id);}} onPointerMove={e=>{if(!dragging.current)return;const row=document.elementsFromPoint(e.clientX,e.clientY).map(element=>element.closest<HTMLElement>("li[data-screen-id]")).find(Boolean);if(row?.dataset.screenId)dragging.current.target=row.dataset.screenId;}} onPointerUp={()=>{const drag=dragging.current;if(drag && drag.source!==drag.target){commit(ops.reorderScreen(docRef.current,drag.source,drag.target));setScreenAnnouncement(`סדר המסכים עודכן: ${s.title}`);}dragging.current=null;setDraggingScreen(null);}} onPointerCancel={()=>{dragging.current=null;setDraggingScreen(null);}}>↕</button>}
                 <button type="button" className="ed-screen" aria-current={s.id === screenId ? "true" : undefined} onClick={() => select(s.id)}>
                   <span className="ed-screen-n">{si + 1}</span>
                   <span className="ed-screen-text">
@@ -254,6 +272,7 @@ export function ChapterEditor(props: ChapterEditorProps) {
               </li>
             ))}
           </ol>
+          <p className="sr-only" aria-live="polite">{screenAnnouncement}</p>
           {!ro && <button type="button" className="btn btn-quiet ed-add-screen" onClick={() => setAdding(true)}>+ הוספת מסך</button>}
         </nav>
 
@@ -303,6 +322,8 @@ export function ChapterEditor(props: ChapterEditorProps) {
               </div>
 
               <div className="ed-card ed-settings">
+                <Field label="תבנית המסך" hint="שינוי תבנית משמר רכיבים קיימים או מציג הסבר אם אינם מתאימים.">{id=><select id={id} value={selected.template} disabled={ro} onChange={e=>{const result=ops.changeTemplate(doc,selected.id,e.target.value as TemplateId);if(result.ok){commit(result.course);setTemplateMessage("");}else setTemplateMessage(result.message);}}>{Object.values(TEMPLATES).map(template=><option key={template.id} value={template.id}>{template.label}</option>)}</select>}</Field>
+                {templateMessage && <p className="form-error" role="alert">{templateMessage}</p>}
                 <Field label="שם המסך">
                   {(id) => <input id={id} value={selected.title} disabled={ro} onChange={(e) => patchScreen((s) => (s.title = e.target.value), `${selected.id}.title`)} />}
                 </Field>
@@ -317,6 +338,7 @@ export function ChapterEditor(props: ChapterEditorProps) {
                   <input type="checkbox" checked={selected.medical.relevant} disabled={ro} onChange={(e) => patchScreen((s) => (s.medical.relevant = e.target.checked), `${selected.id}.med`)} />
                   מכיל תוכן רפואי (דורש אישור מקצועי לפני פרסום הקורס)
                 </label>
+                <ScreenV2Settings screen={selected} patch={patchScreen} media={mediaMap} pickMedia={pickMedia} disabled={ro} />
               </div>
 
               {TEMPLATES[selected.template].slots.map((slot) => {
@@ -404,11 +426,11 @@ export function ChapterEditor(props: ChapterEditorProps) {
                 </button>
               ))}
               {(Object.keys(ops.MEDIA_TEMPLATES) as (keyof typeof ops.MEDIA_TEMPLATES)[]).map((t) => (
-                <button key={t} type="button" className="tpl-card" onClick={() => pickMedia(ops.MEDIA_TEMPLATES[t]!, `בחירת קובץ ל${TEMPLATES[t].label}`, (a) => addScreen(t, a))}>
+                <div key={t} className="tpl-option"><button type="button" className="tpl-card" onClick={() => pickMedia(ops.MEDIA_TEMPLATES[t]!, `בחירת קובץ ל${TEMPLATES[t].label}`, (a) => addScreen(t, a))}>
                   <strong>{TEMPLATES[t].label}</strong>
                   <span>{TEMPLATES[t].description}</span>
                   <em>דורש קובץ מספריית המדיה</em>
-                </button>
+                </button><button type="button" className="btn btn-quiet btn-sm" onClick={()=>addScreen(t)}>טיוטה עם מקום שמור: {TEMPLATES[t].label}</button></div>
               ))}
             </div>
             <div className="ed-modal-actions">

@@ -58,6 +58,7 @@ describe("editor ops", () => {
     const cq = copy.slots.question![0]!;
     if (cq.type !== "choiceQuestion") throw new Error();
     expect(cq.id).not.toBe(q.id);
+    if (!("componentId" in copy.flow.rules[0]!.when)) throw new Error();
     expect(copy.flow.rules[0]!.when.componentId).toBe(cq.id);
     expect(copy.flow.rules[0]!.when.outcome).toEqual({ choice: cq.options[0]!.id });
     expect(validateCourse(d.course).issues.filter((i) => i.code === "DUPLICATE_ID")).toEqual([]);
@@ -88,8 +89,10 @@ describe("editor ops", () => {
     c = ops.addScreen(c, "u-1", "media_text", image).course;
     c = ops.addScreen(c, "u-1", "cinematic_intro", image).course;
     expect(validateCourse(c).issues.filter((i) => i.severity === "error")).toEqual([]);
-    expect(() => ops.addScreen(c, "u-1", "video")).toThrow();
+    expect(ops.addScreen(c, "u-1", "video").course.units[0]!.screens.at(-1)!.slots.video?.[0]).toMatchObject({media:{placeholder:{description:expect.any(String)}}});
     expect(ops.allowedToAdd("text", "body")).toContain("audio");
-    expect(ops.allowedToAdd("hotspot", "task")).not.toContain("hotspotImage");
+    expect(ops.allowedToAdd("hotspot", "task")).toContain("hotspotImage");
+    const hotspot = ops.defaultScreen("hotspot",image);
+    expect(hotspot.slots.task?.[0]?.type).toBe("hotspotImage");
   });
 });

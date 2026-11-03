@@ -1,55 +1,22 @@
 "use client";
+import type { V2Patch } from "./V2ComponentForm";
 
-import { useId } from "react";
+import { Field } from "./EditorField";
+export { Field } from "./EditorField";
 import type { Component, Course, FlowTarget, Screen } from "@mozes/content-schema";
-import { flattenScreens } from "@mozes/content-schema";
+import { ComponentV2, ChoiceQuestionV2, flattenScreens } from "@mozes/content-schema";
 import type { AssetView } from "@/components/media/upload";
 import { blocksToText, newId, textToBlocks } from "./ops";
+import { PrimaryMediaForm, V2ComponentForm } from "./V2ComponentForm";
+import { RichTextEditor } from "./RichTextEditor";
+import { ChoiceOptionFields } from "./ChoiceOptionFields";
 
 type MediaMap = Record<string, { src: string; mime?: string }>;
 type PickMedia = (kinds: AssetView["kind"][], title: string, onPick: (a: AssetView) => void) => void;
 
-function MediaField({ label, assetId, media, kinds, pickMedia, onChange, onClear, disabled }: {
-  label: string;
-  assetId: string | undefined;
-  media: MediaMap;
-  kinds: AssetView["kind"][];
-  pickMedia: PickMedia;
-  onChange: (a: AssetView) => void;
-  onClear?: () => void;
-  disabled: boolean;
-}) {
-  const m = assetId ? media[assetId] : undefined;
-  return (
-    <div className="ef">
-      <span className="ef-label">{label}</span>
-      <div className="media-field">
-        {m && kinds.includes("image") && !m.mime?.startsWith("video") && !m.mime?.startsWith("text") ? <img src={m.src} alt="" /> : null}
-        {m && m.mime?.startsWith("video") ? <video src={m.src} preload="metadata" muted aria-hidden="true" /> : null}
-        <span className="media-field-name">{assetId ? (m ? "קובץ נבחר" : "הקובץ אינו זמין") : "לא נבחר קובץ"}</span>
-        <button type="button" className="btn btn-quiet btn-sm" disabled={disabled} onClick={() => pickMedia(kinds, label, onChange)}>
-          {assetId ? "החלפה" : "בחירה"}
-        </button>
-        {assetId && onClear && (
-          <button type="button" className="ed-link-danger" disabled={disabled} onClick={onClear}>הסרה</button>
-        )}
-      </div>
-    </div>
-  );
-}
 
-type Patch = (fn: (c: Component) => void, key: string) => void;
+type Patch = V2Patch;
 
-export function Field({ label, hint, children }: { label: string; hint?: string; children: (id: string) => React.ReactNode }) {
-  const id = useId();
-  return (
-    <div className="ef">
-      <label htmlFor={id}>{label}</label>
-      {children(id)}
-      {hint && <p className="ef-hint">{hint}</p>}
-    </div>
-  );
-}
 
 export function TargetSelect({
   course,
@@ -68,7 +35,7 @@ export function TargetSelect({
   disabled?: boolean;
   id?: string;
 }) {
-  const screens = flattenScreens(course).filter((r) => r.screen.id !== screenId);
+  const screens = flattenScreens(course);
   const v = !value ? "" : value.kind === "goto" ? `goto:${value.screenId}` : value.kind;
   return (
     <select
@@ -86,7 +53,7 @@ export function TargetSelect({
       <optgroup label="מעבר למסך">
         {screens.map((r) => (
           <option key={r.screen.id} value={`goto:${r.screen.id}`}>
-            {r.unit.title} · {r.screen.title}
+            {r.unit.title} · {r.screen.title}{r.screen.id===screenId ? " (חזרה למסך זה)" : ""}
           </option>
         ))}
       </optgroup>
@@ -146,63 +113,12 @@ export function ComponentForm({
   pickMedia: PickMedia;
 }) {
   switch (c.type) {
-    case "image":
-      return (
-        <>
-          <MediaField label="תמונה" assetId={c.media.assetId} media={media} kinds={["image"]} pickMedia={pickMedia} disabled={disabled}
-            onChange={(a) => patch((x) => { if (x.type === "image") { x.media = { assetId: a.id }; if (!x.alt) x.alt = a.altText; } }, `${c.id}.media`)} />
-          <label className="ef-check">
-            <input type="checkbox" checked={c.decorative} disabled={disabled} onChange={(e) => patch((x) => x.type === "image" && (x.decorative = e.target.checked), `${c.id}.deco`)} />
-            תמונה דקורטיבית בלבד (בלי מידע חשוב)
-          </label>
-          {!c.decorative && (
-            <Field label="תיאור התמונה (לנגישות)" hint="מה רואים בתמונה, במשפט אחד. קוראי מסך מקריאים אותו.">
-              {(id) => <input id={id} value={c.alt} disabled={disabled} onChange={(e) => patch((x) => x.type === "image" && (x.alt = e.target.value), `${c.id}.alt`)} />}
-            </Field>
-          )}
-          <Field label="כיתוב מתחת לתמונה (לא חובה)">
-            {(id) => <input id={id} value={c.caption ?? ""} disabled={disabled} onChange={(e) => patch((x) => x.type === "image" && (x.caption = e.target.value || undefined), `${c.id}.caption`)} />}
-          </Field>
-        </>
-      );
-    case "video":
-      return (
-        <>
-          <MediaField label="סרטון" assetId={c.media.assetId} media={media} kinds={["video"]} pickMedia={pickMedia} disabled={disabled}
-            onChange={(a) => patch((x) => x.type === "video" && (x.media = { assetId: a.id }), `${c.id}.media`)} />
-          <MediaField label="כתוביות (VTT, מומלץ)" assetId={c.captions?.assetId} media={media} kinds={["captions"]} pickMedia={pickMedia} disabled={disabled}
-            onChange={(a) => patch((x) => x.type === "video" && (x.captions = { assetId: a.id }), `${c.id}.captions`)}
-            onClear={() => patch((x) => { if (x.type === "video") delete x.captions; }, `${c.id}.captions`)} />
-          <MediaField label="תמונת פתיחה (לא חובה)" assetId={c.poster?.assetId} media={media} kinds={["image"]} pickMedia={pickMedia} disabled={disabled}
-            onChange={(a) => patch((x) => x.type === "video" && (x.poster = { assetId: a.id }), `${c.id}.poster`)}
-            onClear={() => patch((x) => { if (x.type === "video") delete x.poster; }, `${c.id}.poster`)} />
-          <div className="ef-row">
-            <Field label="חובה לצפות (%)" hint="0 = אין חובה">
-              {(id) => <input id={id} type="number" min={0} max={100} value={c.requiredWatchPercent} disabled={disabled}
-                onChange={(e) => patch((x) => x.type === "video" && (x.requiredWatchPercent = Math.max(0, Math.min(100, Number(e.target.value) || 0))), `${c.id}.req`)} />}
-            </Field>
-            {screen.template === "scenario" && (
-              <Field label="עצירה והצגת השאלה בשנייה" hint="ריק = בסוף הסרטון">
-                {(id) => <input id={id} type="number" min={0} step={0.5} value={c.pauseAtMs === undefined ? "" : c.pauseAtMs / 1000} disabled={disabled}
-                  onChange={(e) => patch((x) => { if (x.type === "video") x.pauseAtMs = e.target.value === "" ? undefined : Math.max(0, Math.round(Number(e.target.value) * 1000)); }, `${c.id}.pause`)} />}
-              </Field>
-            )}
-          </div>
-          <Field label="תמליל (לנגישות)">
-            {(id) => <textarea id={id} rows={3} value={c.transcript ?? ""} disabled={disabled} onChange={(e) => patch((x) => x.type === "video" && (x.transcript = e.target.value || undefined), `${c.id}.transcript`)} />}
-          </Field>
-        </>
-      );
-    case "audio":
-      return (
-        <>
-          <MediaField label="קובץ שמע" assetId={c.media.assetId} media={media} kinds={["audio"]} pickMedia={pickMedia} disabled={disabled}
-            onChange={(a) => patch((x) => x.type === "audio" && (x.media = { assetId: a.id }), `${c.id}.media`)} />
-          <Field label="תמליל (חובה, לנגישות)">
-            {(id) => <textarea id={id} rows={4} value={c.transcript} disabled={disabled} onChange={(e) => patch((x) => x.type === "audio" && (x.transcript = e.target.value), `${c.id}.transcript`)} />}
-          </Field>
-        </>
-      );
+    case "image": case "video": case "audio": {
+      const parsed = ComponentV2.parse(c); if(parsed.type!=="image" && parsed.type!=="video" && parsed.type!=="audio") throw Error("סוג מדיה לא תואם");
+      return <PrimaryMediaForm c={parsed} patch={patch} media={media} pickMedia={pickMedia} disabled={disabled} scenario={screen.template==="scenario" || screen.template==="decision"} />;
+    }
+    case "animation": case "reveal": case "hotspotExplore": case "hotspotImage": case "simulation":
+      return <V2ComponentForm c={ComponentV2.parse(c)} patch={patch} media={media} pickMedia={pickMedia} disabled={disabled} />;
     case "heading":
       return (
         <div className="ef-row">
@@ -235,12 +151,13 @@ export function ComponentForm({
               )}
             </Field>
           )}
-          <Field label="טקסט" hint="שורה ריקה מתחילה פסקה חדשה. שורות שמתחילות ב-״- ״ הופכות לרשימה.">
+          {!c.body.some(b => (b.kind==="list" && b.ordered) || (b.kind==="paragraph" ? b.content : b.items.flat()).some(i => i.bold || i.italic || i.href)) && <Field label="טקסט" hint="שורה ריקה מתחילה פסקה חדשה. שורות שמתחילות ב-״- ״ הופכות לרשימה.">
             {(id) => (
               <textarea id={id} rows={6} defaultValue={blocksToText(c.body)} disabled={disabled}
                 onChange={(e) => patch((x) => (x.type === "richText" || x.type === "callout") && (x.body = textToBlocks(e.target.value)), `${c.id}.body`)} />
             )}
-          </Field>
+          </Field>}
+          <details><summary>עריכת פסקאות, רשימות והדגשות</summary><RichTextEditor value={c.body} disabled={disabled} onChange={body => patch(x => {if(x.type==="richText" || x.type==="callout") x.body=body;},`${c.id}.body`)} /></details>
         </>
       );
     case "button":
@@ -273,7 +190,7 @@ export function ComponentForm({
       );
     case "choiceQuestion": {
       const branchFor = (optionId: string) =>
-        screen.flow.rules.find((r) => r.when.componentId === c.id && typeof r.when.outcome === "object" && r.when.outcome.choice === optionId)?.then ?? null;
+        screen.flow.rules.find((r) => "componentId" in r.when && r.when.componentId === c.id && typeof r.when.outcome === "object" && r.when.outcome.choice === optionId)?.then ?? null;
       return (
         <>
           <Field label="השאלה">
@@ -295,7 +212,7 @@ export function ComponentForm({
           </div>
           <fieldset className="ef-options">
             <legend>תשובות</legend>
-            {c.options.map((o, i) => (
+            {ChoiceQuestionV2.parse(c).options.map((o, i) => (
               <div key={o.id} className="ef-option">
                 <div className="ef-option-head">
                   <label className="ef-check">
@@ -321,6 +238,7 @@ export function ComponentForm({
                   onChange={(e) => patch((x) => x.type === "choiceQuestion" && (x.options[i]!.text = e.target.value), `${o.id}.text`)} />
                 <input aria-label={`משוב לתשובה ${i + 1} (לא חובה)`} placeholder="משוב לתשובה זו (לא חובה)" value={o.feedback ?? ""} disabled={disabled}
                   onChange={(e) => patch((x) => x.type === "choiceQuestion" && (x.options[i]!.feedback = e.target.value || undefined), `${o.id}.fb`)} />
+                <ChoiceOptionFields option={o} variables={course.schemaVersion===2 ? course.settings.variables ?? {} : {}} media={media} pickMedia={pickMedia} disabled={disabled} decision={screen.template==="decision"} edit={fn => patch(x => {if(x.type==="choiceQuestion") fn(x.options[i]!);},`${o.id}.extras`)} />
                 {c.mode === "single" && (
                   <Field label="אחרי בחירה בתשובה זו">
                     {(id) => <TargetSelect id={id} course={course} screenId={screen.id} value={branchFor(o.id)} allowNone disabled={disabled} onChange={(t) => setBranch(o.id, t)} />}
@@ -367,6 +285,6 @@ export function ComponentForm({
     case "interactiveScene":
       return <p className="ef-hint">מסך מיובא עם {c.scene.objects.length} רכיבים. העיצוב והאינטראקציות נשמרים וניתנים לבדיקה בתצוגה המקדימה.</p>;
     default:
-      return <p className="ef-hint">עריכת רכיב מסוג זה תתאפשר עם ספריית המדיה.</p>;
+      throw Error("רכיב לא מוכר בעורך. יש לבדוק את סוג הרכיב בקובץ.");
   }
 }
