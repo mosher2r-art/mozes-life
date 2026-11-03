@@ -32,8 +32,9 @@ test.describe("anonymous", () => {
     await expect(page.getByRole("heading", { name: "כניסה לחשבון" })).toBeVisible();
     await expect(page.getByAltText("MOZES LIFE — לומדים להציל חיים")).toBeVisible();
     await expect(page.getByRole("link", { name: "MOZES LIFE — לדף הבית", exact: true })).toHaveAttribute("href", "/");
+    await expect(page.locator(".auth-brand .logo")).toHaveCSS("animation-name", "auth-logo-shine", { pseudo: "after" });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await expect(page.locator(".auth-brand")).toHaveCSS("animation-name", "none", { pseudo: "after" });
+    await expect(page.locator(".auth-brand .logo")).toHaveCSS("animation-name", "none", { pseudo: "after" });
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await expectNoHorizontalScroll(page);
     await expectNoA11yViolations(page);
@@ -91,6 +92,7 @@ test.describe("super_admin", () => {
     await expectNoA11yViolations(page);
     await page.screenshot({ path: `test-results/screens/studio-${info.project.name}.png`, fullPage: true });
 
+    await expect(page.getByRole("link", { name: "MOZES LIFE — לוח הבקרה", exact: true })).toHaveAttribute("href", "/studio");
     const res = await page.request.get("/api/studio/me");
     expect(res.status()).toBe(200);
     expect((await res.json()).platformRoles).toEqual(["super_admin"]);
