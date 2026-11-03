@@ -16,7 +16,8 @@
   },
   "dependencies": {
     "@mozes/content-schema": "workspace:*",
-    "@mozes/player-core": "workspace:*"
+    "@mozes/player-core": "workspace:*",
+    "lottie-web": "5.13.0"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
