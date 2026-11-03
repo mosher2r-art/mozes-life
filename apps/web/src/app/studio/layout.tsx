@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { can, ROLE_LABELS_HE } from "@mozes/authz";
 import { Forbidden } from "@/components/Forbidden";
 import { Logo } from "@/components/Logo";
@@ -36,7 +37,9 @@ export default async function StudioLayout({ children }: { children: React.React
       </a>
       <aside className="studio-side">
         <div className="studio-brand">
-          <Logo width={170} priority surface="dark" />
+          <Link href="/studio" className="studio-home-link" aria-label="MOZES LIFE — לוח הבקרה">
+            <Logo width={170} priority surface="dark" shine />
+          </Link>
           <span className="studio-product">STUDIO</span>
         </div>
         <StudioNav items={NAV.filter((n) => !("action" in n) || can(user.actor, n.action))} />
