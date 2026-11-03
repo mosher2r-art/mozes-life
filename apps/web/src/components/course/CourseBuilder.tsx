@@ -136,26 +136,28 @@ export function CourseBuilder(p: CourseBuilderProps) {
   const [publishing, setPublishing] = useState(false);
   const [publishMsg, setPublishMsg] = useState<{ tone: "ok" | "bad"; text: string } | null>(null);
 
+  const [publishProblems,setPublishProblems]=useState<{message:string;chapterId?:string;screenId?:string}[]>([]);
   async function publish() {
     setPublishing(true);
-    setPublishMsg(null);
+    setPublishMsg(null);setPublishProblems([]);
     const res = await fetch(`/api/studio/courses/${p.courseId}/publish`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ medicalConfirmed: medicalOk }),
     }).catch(() => null);
     setPublishing(false);
-    const body = (await res?.json().catch(() => ({}))) as { versionNo?: number; error?: string; errors?: string[] } | undefined;
+    const body = (await res?.json().catch(() => ({}))) as { versionNo?: number; error?: string; errors?: string[];problems?:{message:string;chapterId?:string;screenId?:string}[] } | undefined;
+    if(body?.problems)setPublishProblems(body.problems);
     if (res?.ok && body?.versionNo) {
       setPublishOpen(false);
       setPublishMsg({ tone: "ok", text: `גרסה ${body.versionNo} פורסמה. לומדים שכבר התחילו ממשיכים בגרסה שבה התחילו.` });
       router.refresh();
     } else if (body?.error === "unchanged") setPublishMsg({ tone: "bad", text: "אין שינויים מאז הגרסה האחרונה שפורסמה." });
     else if (body?.error === "medical_unconfirmed") setPublishMsg({ tone: "bad", text: "יש לאשר שהתוכן הרפואי נבדק לפני הפרסום." });
-    else setPublishMsg({ tone: "bad", text: body?.errors?.[0] ?? "הפרסום נכשל." });
+    else setPublishMsg({ tone: "bad", text: body?.errors?.join("\n") ?? "הפרסום נכשל." });
   }
 
-  const resolveMedia: MediaResolver = useCallback((ref) => p.media[ref.assetId] ?? DEMO_MEDIA[ref.assetId] ?? null, [p.media]);
+  const resolveMedia: MediaResolver = useCallback((ref) => ref.assetId ? p.media[ref.assetId] ?? DEMO_MEDIA[ref.assetId] ?? null : null, [p.media]);
   const status = p.latestVersion ? (p.unpublishedChanges ? `פורסם (גרסה ${p.latestVersion}) · יש שינויים שלא פורסמו` : `פורסם · גרסה ${p.latestVersion}`) : "טיוטה";
 
   return (
@@ -275,7 +277,7 @@ export function CourseBuilder(p: CourseBuilderProps) {
             {blocking.length > 0 ? (
               <p className="validity is-bad">{blocking.length} דברים לתקן לפני פרסום</p>
             ) : (
-              <p className="validity is-ok">מוכן לפרסום</p>
+              <p className="validity is-ok">{p.composed.schemaVersion===2 ? "הבדיקה הטכנית עברה; אישורי התוכן והמדיה נבדקים בשרת בעת הפרסום." : "מוכן לפרסום"}</p>
             )}
             {p.canAssign && p.latestVersion && <Link className="btn btn-quiet btn-sm" href={`/studio/courses/${p.courseId}/learners`}>גישה ולומדים</Link>}
           </section>
@@ -305,15 +307,17 @@ export function CourseBuilder(p: CourseBuilderProps) {
               <p className="validity is-ok">בדיקת התקינות עברה</p>
             )}
             <p className="notice">{TECHNICAL_ONLY_NOTICE}</p>
-            {medicalScreens > 0 && (
+            {medicalScreens > 0 && p.composed.schemaVersion!==2 && (
               <label className="ef-check ed-medical">
                 <input type="checkbox" checked={medicalOk} onChange={(e) => setMedicalOk(e.target.checked)} />
                 אני מאשר/ת ש-{medicalScreens} המסכים המסומנים כתוכן רפואי נבדקו ואושרו על ידי גורם מקצועי מוסמך. האישור נרשם ביומן המערכת.
               </label>
             )}
-            {publishMsg && <p className={`ed-banner ed-banner-${publishMsg.tone}`} role="alert">{publishMsg.text}</p>}
+            {p.composed.schemaVersion===2 && medicalScreens>0 && <p className="notice">אישור רפואי ניתן לכל מסך בפרק עצמו ומאומת מול תוכנו בשרת.</p>}
+            {publishProblems.length>0 && <ul>{publishProblems.map((problem,i)=><li key={i}>{problem.chapterId ? <Link href={`/studio/chapters/${problem.chapterId}${problem.screenId ? `?screen=${encodeURIComponent(problem.screenId)}` : ""}`}>{problem.message}</Link> : problem.message}</li>)}</ul>}
+            {publishMsg && <p className={`ed-banner v2-preserve-lines ed-banner-${publishMsg.tone}`} role="alert">{publishMsg.text}</p>}
             <div className="ed-modal-actions">
-              <button type="button" className="btn btn-primary" disabled={publishing || blocking.length > 0 || (medicalScreens > 0 && !medicalOk)} onClick={publish}>
+              <button type="button" className="btn btn-primary" disabled={publishing || blocking.length > 0 || (medicalScreens > 0 && p.composed.schemaVersion!==2 && !medicalOk)} onClick={publish}>
                 {publishing ? "מפרסם…" : "פרסום"}
               </button>
               <button type="button" className="btn btn-quiet" onClick={() => setPublishOpen(false)}>ביטול</button>
