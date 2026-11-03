@@ -68,7 +68,11 @@ img { max-width: 100%; height: auto; display: block; }
 .icon-btn svg { width: 18px; height: 18px; }
 
 /* Logo */
-.logo { display: inline-block; line-height: 0; }
+.logo { position: relative; display: inline-block; max-width: 100%; line-height: 0; }
+/* Crop transparent padding in CSS; keep the supplied image bytes intact. */
+.logo-silver { aspect-ratio: 2045 / 430; overflow: hidden; }
+.logo-silver img { position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
+.studio-home-link { display: block; width: fit-content; max-width: 100%; line-height: 0; border-radius: var(--radius-sm); }
 
 /* ───────────── Login ───────────── */
 
@@ -83,18 +87,18 @@ img { max-width: 100%; height: auto; display: block; }
 }
 .auth-panel { display: grid; place-items: center; padding: var(--sp-6) var(--sp-5) var(--sp-8); }
 .auth-form-wrap { width: 100%; max-width: 380px; display: grid; gap: var(--sp-4); }
-/* Supplied opening logo, centered and linked to the role-aware home page. */
-.auth-brand { position: relative; display: block; width: 100%; justify-self: center; overflow: hidden; border-radius: var(--radius-lg); background: var(--ink); }
+/* Original opening logo, centered on the light login panel. */
+.auth-brand { display: block; width: fit-content; max-width: 100%; justify-self: center; line-height: 0; padding-block: var(--sp-4); }
 .auth-brand img { width: 100%; height: auto; }
-.auth-brand::after {
+.logo-shine::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(110deg, transparent 42%, rgb(255 255 255 / 0.15) 47%, rgb(255 255 255 / 0.95) 50%, rgb(202 255 162 / 0.45) 52%, transparent 57%);
   background-size: 300% 100%; background-position: 100% 0;
-  mask: url("/brand/mozes-life-opening-logo.png") center / contain no-repeat;
+  mask: var(--logo-mask) center / 100% auto no-repeat;
   animation: auth-logo-shine 6s ease-in-out infinite;
 }
 @keyframes auth-logo-shine { 0%, 15% { background-position: 100% 0; } 55%, 100% { background-position: 0% 0; } }
-@media (prefers-reduced-motion: reduce) { .auth-brand::after { animation: none; background: none; } }
+@media (prefers-reduced-motion: reduce) { .logo-shine::after { animation: none; background: none; } }
 .auth-title { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.01em; }
 .auth-sub { color: var(--text-muted); margin-top: calc(var(--sp-3) * -1); }
 .auth-note { font-size: var(--fs-sm); color: var(--text-muted); }
