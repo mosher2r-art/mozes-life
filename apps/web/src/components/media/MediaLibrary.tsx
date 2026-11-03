@@ -5,6 +5,7 @@ import { ACCEPT_ATTR, formatBytes, KIND_LABEL, maxMediaBytes, type AssetKind } f
 
 export type { AssetKind };
 import { type AssetView, uploadFile } from "./upload";
+import { AssetMetadataEditor } from "./AssetMetadataEditor";
 
 interface Upload {
   name: string;
@@ -22,17 +23,21 @@ export function MediaLibrary({
   kinds,
   onPick,
   canManage,
+  canReview = false,
 }: {
   mode: "manage" | "pick";
   /** Restrict the list (and auto-pick after upload) to these kinds. */
   kinds?: AssetKind[];
   onPick?: (a: AssetView) => void;
   canManage: boolean;
+  canReview?: boolean;
 }) {
   const [assets, setAssets] = useState<AssetView[] | null>(null);
   const [storage, setStorage] = useState<"r2" | "local" | "none">("r2");
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [drag, setDrag] = useState(false);
+  const [editing,setEditing]=useState<AssetView|null>(null);
+  const [embedUrl,setEmbedUrl]=useState(""),[embedTitle,setEmbedTitle]=useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
@@ -66,18 +71,15 @@ export function MediaLibrary({
   async function remove(a: AssetView) {
     const res = await fetch(`/api/studio/media/${a.id}`, { method: "DELETE" });
     if (res.ok) setAssets((l) => l?.filter((x) => x.id !== a.id) ?? null);
-    else setMsg(res.status === 409 ? `"${a.filename}" בשימוש בקורס, ולכן אי אפשר למחוק אותו.` : "המחיקה נכשלה.");
+    else {if(res.status===409)setEditing(a);setMsg(res.status === 409 ? `"${a.filename}" בשימוש בקורס, ולכן אי אפשר למחוק אותו.` : "המחיקה נכשלה.");}
   }
 
-  async function saveAlt(a: AssetView, altText: string) {
-    await fetch(`/api/studio/media/${a.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ altText }) });
-  }
 
   if (storage === "none") {
     return (
       <div className="block media-off" role="status">
         <h2>אחסון הקבצים עדיין לא הוגדר</h2>
-        <p className="muted">כדי להעלות סרטונים ותמונות צריך לחבר את Cloudflare R2. ההוראות נמצאות בקובץ DEPLOY.md במאגר, בפרק ״אחסון קבצים״.</p>
+        <p className="muted">אחסון המדיה טרם הוגדר עבור האתר. פנו למנהל המערכת.</p>
       </div>
     );
   }
@@ -93,11 +95,13 @@ export function MediaLibrary({
         >
           <p className="dropzone-title">גררו לכאן קבצים, או</p>
           <button type="button" className="btn btn-dark btn-sm" onClick={() => input.current?.click()}>בחירת קבצים מהמחשב</button>
-          <p className="muted dropzone-hint">תמונות JPG, PNG, WebP (עד {formatBytes(maxMediaBytes("image"))}) · סרטונים MP4, WebM (עד {formatBytes(maxMediaBytes("video"))}) · שמע MP3, M4A (עד {formatBytes(maxMediaBytes("audio"))}) · כתוביות VTT</p>
+          <p className="muted dropzone-hint">תמונות JPG, PNG, WebP (עד {formatBytes(maxMediaBytes("image"))}) · סרטונים MP4, WebM (עד {formatBytes(maxMediaBytes("video"))}) · שמע MP3, M4A (עד {formatBytes(maxMediaBytes("audio"))}) · כתוביות VTT · אנימציות Lottie JSON או .lottie</p>
           <input ref={input} type="file" multiple hidden accept={ACCEPT_ATTR} aria-label="בחירת קבצים להעלאה" onChange={(e) => e.target.files && void handleFiles(e.target.files)} />
         </div>
       )}
 
+      {canManage && <details className="block"><summary>הוספת סרטון מ־YouTube או Vimeo</summary><form onSubmit={async e=>{e.preventDefault();setMsg(null);try{const response=await fetch("/api/studio/media/embed",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({url:embedUrl,title:embedTitle})}),body=await response.json();if(!response.ok){setMsg(body.message ?? "הוספת הסרטון נכשלה.");return;}setEmbedUrl("");setEmbedTitle("");await load();}catch{setMsg("אין חיבור לשרת.");}}}><label>שם הסרטון<input required value={embedTitle} maxLength={200} onChange={e=>setEmbedTitle(e.target.value)} /></label><label>קישור HTTPS לסרטון<input required type="url" dir="ltr" value={embedUrl} onChange={e=>setEmbedUrl(e.target.value)} /></label><button type="submit" className="btn btn-quiet">הוספת סרטון לספרייה</button><p className="ef-hint">נדרשות הרשאות שימוש ובדיקה רפואית גם לסרטון מוטמע.</p></form></details>}
+      {editing && <section className="block"><button type="button" className="btn btn-quiet" onClick={()=>setEditing(null)}>סגירת פרטי הנכס</button><AssetMetadataEditor key={editing.versionId ?? editing.id} asset={editing} canReview={canReview} canManage={canManage} onDone={()=>{setEditing(null);void load();}} /></section>}
       {uploads.length > 0 && (
         <ul className="uploads" aria-live="polite">
           {uploads.map((u) => (
@@ -141,9 +145,7 @@ export function MediaLibrary({
               <div className="media-meta">
                 <span className="media-name" title={a.filename}>{a.filename}</span>
                 <span className="muted">{KIND_LABEL[a.kind]} · {formatBytes(a.sizeBytes)}</span>
-                {mode === "manage" && canManage && a.kind === "image" && (
-                  <input aria-label={`תיאור חלופי ל-${a.filename}`} placeholder="תיאור התמונה לנגישות" defaultValue={a.altText} onBlur={(e) => void saveAlt(a, e.target.value)} />
-                )}
+                {(canManage || canReview) && <button type="button" className="btn btn-quiet btn-sm" onClick={()=>setEditing(a)}>פרטי נכס, רישיון וגרסאות</button>}
                 {mode === "manage" && canManage && (
                   <button type="button" className="ed-link-danger" onClick={() => void remove(a)}>מחיקה</button>
                 )}
@@ -158,6 +160,7 @@ export function MediaLibrary({
 
 function Thumb({ a }: { a: AssetView }) {
   if (a.kind === "image") return <img src={a.url} alt="" loading="lazy" />;
+  if (a.metadata?.embed) return <span className="media-icon" aria-hidden="true">▶</span>;
   if (a.kind === "video") return <video src={a.url} preload="metadata" muted playsInline aria-hidden="true" />;
-  return <span className="media-icon" aria-hidden="true">{a.kind === "audio" ? "♪" : "CC"}</span>;
+  return <span className="media-icon" aria-hidden="true">{a.kind === "audio" ? "♪" : a.kind === "animation" ? "▶" : "CC"}</span>;
 }
