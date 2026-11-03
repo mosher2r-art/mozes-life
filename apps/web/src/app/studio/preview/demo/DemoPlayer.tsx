@@ -6,7 +6,7 @@ import type { Course } from "@mozes/content-schema";
 import { CoursePlayer, type MediaResolver } from "@mozes/player-react";
 import { DEMO_MEDIA } from "@/content/demo-course";
 
-const resolveMedia: MediaResolver = (ref) => DEMO_MEDIA[ref.assetId] ?? null;
+const resolveMedia: MediaResolver = (ref) => ref.assetId ? DEMO_MEDIA[ref.assetId] ?? null : null;
 
 type Device = "mobile" | "desktop";
 
