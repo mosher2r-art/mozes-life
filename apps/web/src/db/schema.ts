@@ -1,6 +1,8 @@
+import type { AssetMetadata } from "@/lib/media-v2-policy";
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  bigserial,
   boolean,
   check,
   date,
@@ -204,6 +206,8 @@ export const chapter = pgTable("chapter", {
   /** A single-unit mozes-course document (validated on every save). */
   content: jsonb("content").notNull(),
   revision: integer("revision").notNull().default(1),
+  publishedVersionId: text("published_version_id"),
+  draftAssetPins: jsonb("draft_asset_pins").$type<Record<string, string>>(),
   createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
   updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
   ...timestamps,
@@ -220,6 +224,7 @@ export const courseVersion = pgTable(
     versionNo: integer("version_no").notNull(),
     content: jsonb("content").notNull(),
     contentHash: text("content_hash").notNull(),
+    assetManifest: jsonb("asset_manifest").$type<Record<string, string>>().notNull().default({}),
     publishedBy: text("published_by").references(() => user.id, { onDelete: "set null" }),
     publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -266,7 +271,7 @@ export const courseDraft = pgTable("course_draft", {
 
 /* ───────────── Media library ───────────── */
 
-export const assetKind = pgEnum("asset_kind", ["image", "video", "audio", "captions"]);
+export const assetKind = pgEnum("asset_kind", ["image", "video", "audio", "captions", "animation"]);
 export const assetStatus = pgEnum("asset_status", ["pending", "ready"]);
 
 export const asset = pgTable(
@@ -279,6 +284,8 @@ export const asset = pgTable(
     mime: text("mime").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
     storageKey: text("storage_key").notNull().unique(),
+    privateStorage: boolean("private_storage").notNull().default(false),
+    currentVersionId: text("current_version_id"),
     altText: text("alt_text").notNull().default(""),
     uploadedBy: text("uploaded_by").references(() => user.id, { onDelete: "set null" }),
     ...timestamps,
@@ -382,4 +389,47 @@ export const rateLimit = pgTable("rate_limit", {
   key: text("key").notNull().unique(),
   count: integer("count").notNull(),
   lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+});
+
+
+/* Schema v2 — immutable snapshots and auditable human approvals. */
+export const assetVersion = pgTable("asset_version", {
+  id: text("id").primaryKey(),
+  assetId: text("asset_id").notNull().references(() => asset.id, { onDelete: "cascade" }),
+  versionNo: integer("version_no").notNull(),
+  contentIdentity: text("content_identity").notNull(),
+  filename: text("filename").notNull(), mime: text("mime").notNull(), sizeBytes: integer("size_bytes").notNull(),
+  storageKey: text("storage_key").notNull(), normalizedKey: text("normalized_key"),
+  privateStorage: boolean("private_storage").notNull().default(true),
+  status: text("status", { enum: ["pending", "ready"] }).notNull().default("pending"),
+  metadata: jsonb("metadata").$type<AssetMetadata>().notNull(),
+  createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, t => [uniqueIndex("asset_version_number_idx").on(t.assetId, t.versionNo), uniqueIndex("asset_version_identity_idx").on(t.id, t.assetId)]);
+
+export const chapterVersion = pgTable("chapter_version", {
+  id: text("id").primaryKey(), chapterId: text("chapter_id").notNull().references(() => chapter.id, { onDelete: "cascade" }),
+  versionNo: integer("version_no").notNull(), content: jsonb("content").notNull(), contentHash: text("content_hash").notNull(),
+  assetManifest: jsonb("asset_manifest").$type<Record<string, string>>().notNull(),
+  publishedBy: text("published_by").references(() => user.id, { onDelete: "set null" }),
+  publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
+}, t => [uniqueIndex("chapter_version_number_idx").on(t.chapterId, t.versionNo), uniqueIndex("chapter_version_identity_idx").on(t.id, t.chapterId)]);
+
+export const screenReview = pgTable("screen_review", {
+  id: text("id").primaryKey(), seq: bigserial("seq", { mode: "number" }).notNull().unique(),
+  chapterId: text("chapter_id").notNull().references(() => chapter.id, { onDelete: "cascade" }),
+  screenId: text("screen_id").notNull(), contentHash: text("content_hash").notNull(),
+  status: text("status", { enum: ["approved", "rejected"] }).notNull(),
+  reviewedBy: text("reviewed_by").notNull().references(() => user.id),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }).notNull().default(sql`clock_timestamp()`),
+  note: text("note").notNull().default(""),
+}, t => [index("screen_review_content_idx").on(t.chapterId, t.screenId, t.contentHash)]);
+
+export const deviceModel = pgTable("device_model", {
+  id: text("id").primaryKey(), name: text("name").notNull(), manufacturer: text("manufacturer").notNull(),
+  deviceType: text("device_type", { enum: ["semi_automatic", "fully_automatic"] }).notNull(),
+  manualUrl: text("manual_url").notNull(), status: text("status", { enum: ["draft", "verified"] }).notNull().default("draft"),
+  verifiedBy: text("verified_by").references(() => user.id), verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  evidence: jsonb("evidence").$type<{ guideReviewed: boolean; trainerTested: boolean; notes: string }>(),
+  createdBy: text("created_by").references(() => user.id), ...timestamps,
 });
