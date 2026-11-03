@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import Image from "next/image";
+import { Logo } from "@/components/Logo";
 import Link from "next/link";
 import { getCurrentUser } from "@/server/actor";
 import { LoginForm } from "./LoginForm";
@@ -15,7 +15,7 @@ export default async function LoginPage() {
       <section className="auth-panel">
         <div className="auth-form-wrap">
           <Link href="/" className="auth-brand" aria-label="MOZES LIFE — לדף הבית">
-            <Image src="/brand/mozes-life-opening-logo.png" alt="MOZES LIFE — לומדים להציל חיים" width={2045} height={866} sizes="(max-width: 440px) 90vw, 380px" priority />
+            <Logo width={260} priority shine />
           </Link>
           <h1 className="auth-title">כניסה לחשבון</h1>
           <p className="auth-sub">התחברו כדי להמשיך ללמידה או לניהול התוכן.</p>
