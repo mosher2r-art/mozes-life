@@ -15,9 +15,13 @@ async function expectNoHorizontalScroll(page: Page) {
 }
 
 async function expectNoA11yViolations(page: Page) {
-  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"));
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  await page.waitForFunction(() => [...document.images].every((image) => image.complete));
+  // A decorative infinite shimmer has no final frame. Wait for finite UI
+  // transitions, then run the same full WCAG checks on the rendered page.
+  await page.waitForFunction(() => document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).every((a) => a.playState !== "running"));
   const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
-  expect(results.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.length})`)).toEqual([]);
+  expect(results.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => ({ target: n.target, summary: n.failureSummary })) }))).toEqual([]);
 }
 
 test.describe("anonymous", () => {
@@ -27,7 +31,13 @@ test.describe("anonymous", () => {
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
     await expect(page.getByRole("heading", { name: "כניסה לחשבון" })).toBeVisible();
     await expect(page.getByAltText("MOZES LIFE — לומדים להציל חיים")).toBeVisible();
+    await expect(page.getByRole("link", { name: "MOZES LIFE — לדף הבית", exact: true })).toHaveAttribute("href", "/");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(page.locator(".auth-brand")).toHaveCSS("animation-name", "none", { pseudo: "after" });
+    await page.emulateMedia({ reducedMotion: "no-preference" });
     await expectNoHorizontalScroll(page);
+    await expectNoA11yViolations(page);
+    await page.getByRole("button", { name: "התחברות", exact: true }).hover();
     await expectNoA11yViolations(page);
     await page.screenshot({ path: `test-results/screens/login-${info.project.name}.png`, fullPage: true });
   });
