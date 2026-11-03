@@ -18,14 +18,14 @@ try {
   }
   await pool.query(sql);
   const { rows: tables } = await pool.query("select tablename from pg_tables where schemaname='public' order by tablename");
-  assert.equal(tables.length, 19);
+  assert.equal(tables.length, 23);
   for (const { tablename } of tables) {
     for (const role of ["anon", "authenticated", "service_role"]) {
       const { rows } = await pool.query("select has_table_privilege($1, $2, 'SELECT,INSERT,UPDATE,DELETE') as allowed", [role, `public.\"${tablename}\"`]);
       assert.equal(rows[0].allowed, false, `${role} can access ${tablename}`);
     }
   }
-  assert.equal((await pool.query("select count(*)::int as n from pg_tables where schemaname='public' and rowsecurity")).rows[0].n, 19);
+  assert.equal((await pool.query("select count(*)::int as n from pg_tables where schemaname='public' and rowsecurity")).rows[0].n, 23);
   const before = (await pool.query("select count(*)::int as n from drizzle.__drizzle_migrations")).rows[0].n;
   await migrate(drizzle(pool), { migrationsFolder: fileURLToPath(new URL("../drizzle", import.meta.url)) });
   assert.equal((await pool.query("select count(*)::int as n from drizzle.__drizzle_migrations")).rows[0].n, before);
@@ -40,5 +40,5 @@ try {
   await assert.rejects(pool.query(sql), /already initialized/);
   // A failed explicit transaction leaves the pooled client in aborted state.
   await pool.query("ROLLBACK");
-  console.log(JSON.stringify({ tables:19, rls:19, apiRoleDenials:57, migrations:before, serverRoleReadWrite:true, migratorNoOp:true, reinstallationRejected:true }));
+  console.log(JSON.stringify({ tables:23, rls:23, apiRoleDenials:69, migrations:before, serverRoleReadWrite:true, migratorNoOp:true, reinstallationRejected:true }));
 } finally { await pool.end(); }
