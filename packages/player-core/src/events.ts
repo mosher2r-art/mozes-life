@@ -12,6 +12,13 @@ export const ResponseSchema = z.discriminatedUnion("type", [
 ]);
 
 export const PlayerEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("reveal_item"), componentId: Id, itemId: Id }).strict(),
+  z.object({ type: z.literal("narration_progress"), positionMs: z.number().int().min(0).max(86_400_000) }).strict(),
+  z.object({ type: z.literal("narration_show_all") }).strict(),
+  z.object({ type: z.literal("narration_mute"), muted: z.boolean() }).strict(),
+  z.object({ type: z.literal("simulation_start"), componentId: Id }).strict(),
+  z.object({ type: z.literal("simulation_reset"), componentId: Id }).strict(),
+  z.object({ type: z.literal("simulation_step"), componentId: Id, action: z.number().int().min(0).max(2) }).strict(),
   z.object({ type: z.literal("scene_advance"), componentId: Id }).strict(),
   z.object({ type: z.literal("scene_drop"), componentId: Id, objectId: Id, targetId: Id }).strict(),
   z.object({ type: z.literal("answer"), componentId: Id, response: ResponseSchema }).strict(),
