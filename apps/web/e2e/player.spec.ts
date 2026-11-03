@@ -14,8 +14,8 @@ const cont = (page: Page) => page.getByRole("button", { name: "המשך", exact:
 const title = (page: Page) => page.locator("#mp-screen-title");
 
 async function axe(page: Page) {
-  // Scan the settled UI: entrance animations start from opacity 0 and would skew contrast.
-  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"));
+  // Scan settled player transitions; the decorative sidebar shimmer stays running.
+  await page.waitForFunction(() => document.querySelector(".mp-player")?.getAnimations({ subtree: true }).filter((a) => a.effect?.getComputedTiming().iterations !== Infinity).every((a) => a.playState !== "running"));
   const r = await new AxeBuilder({ page }).include(".mp-player").withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
   expect(
     r.violations.flatMap((v) => v.nodes.map((n) => `${v.id}: ${n.target.join(" ")} — ${n.failureSummary?.split("\n").slice(1).join(" ")}`)),
