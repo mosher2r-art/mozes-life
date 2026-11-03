@@ -6,6 +6,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-24.04
@@ -56,6 +60,12 @@ jobs:
           pnpm --filter @mozes/web sql:verify
         env:
           SQL_TEST_DATABASE_URL: postgres://mozes:mozes@localhost:5432/mozes_schema_test
+      - name: Verify additive Schema v2 upgrade without rewriting v1 content
+        run: |
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE mozes_v2_upgrade_test'
+          pnpm --filter @mozes/web exec tsx scripts/verify-v2-upgrade.ts
+        env:
+          SQL_TEST_DATABASE_URL: postgres://mozes:mozes@localhost:5432/mozes_v2_upgrade_test
       - name: Build Worker and validate upload bundle without deployment
         run: |
           pnpm --filter @mozes/web build:worker
