@@ -4,7 +4,7 @@ import { guard, json, readJson } from "@/server/route-guard";
 import { driver } from "@/server/storage";
 
 export const dynamic = "force-dynamic";
-const Kind = z.enum(["image", "video", "audio", "captions"]);
+const Kind = z.enum(["image", "video", "audio", "captions", "animation"]);
 const Body = z.object({ filename: z.string().min(1).max(255), mime: z.string().max(100), size: z.number().int().positive() }).strict();
 
 export async function GET(req: Request) {
