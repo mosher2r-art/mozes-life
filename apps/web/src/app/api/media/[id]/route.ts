@@ -12,6 +12,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const { id } = await ctx.params;
   if (!ID_RE.test(id)) return json({ error: "not_found" }, 404);
   const a = await getReady(id);
-  if (!a) return json({ error: "not_found" }, 404);
+  if (!a || a.privateStorage) return json({ error: "not_found" }, 404);
   return serveLocal(a.storageKey, a.mime, req.headers.get("range"));
 }
