@@ -1,3 +1,4 @@
+import type { ResolvedMedia } from "@mozes/player-react";
 import "server-only";
 import { z } from "zod";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
@@ -9,6 +10,7 @@ import { course, courseVersion, enrollment, user } from "@/db/schema";
 import { accessByCourse, type CourseAccessSummary, ensureEnrollments, hasActiveAccess } from "./access";
 import { launchUrlFor } from "./importer";
 import { resolveAssets } from "./media";
+import { resolveVersionedAssets } from "./media-v2";
 
 export interface MyCourse {
   /** null while access is only scheduled (no progress record yet). */
@@ -77,7 +79,7 @@ export interface LaunchData {
   isDemo: boolean;
   content: Course;
   state: PlayerState;
-  media: Record<string, { src: string; mime: string }>;
+  media: Record<string, ResolvedMedia>;
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -111,7 +113,7 @@ async function loadForUpdate(tx: Tx, userId: string, enrollmentId: string) {
   const { row, version } = pinned;
   const content = Course.parse(version.content);
   const state = row.e.state ? reconcile(content, row.e.state as PlayerState) : start(content);
-  return { row, content, state };
+  return { row, content, state, assetManifest: version.assetManifest };
 }
 
 export async function getLaunchData(userId: string, enrollmentId: string): Promise<LaunchData | PackageLaunch | null> {
@@ -120,10 +122,10 @@ export async function getLaunchData(userId: string, enrollmentId: string): Promi
   const data = await db.transaction(async (tx) => {
     const loaded = await loadForUpdate(tx, userId, enrollmentId);
     if (!loaded) return null;
-    return { kind: "native" as const, enrollmentId, title: loaded.row.c.title, isDemo: loaded.row.c.isDemo, content: loaded.content, state: loaded.state };
+    return { kind: "native" as const, enrollmentId, title: loaded.row.c.title, isDemo: loaded.row.c.isDemo, content: loaded.content, state: loaded.state, assetManifest: loaded.assetManifest };
   });
   if (!data) return null;
-  return { ...data, media: await resolveAssets(collectAssetIds(data.content)) };
+  return { ...data, media: data.content.schemaVersion === 2 ? await resolveVersionedAssets(collectAssetIds(data.content), data.assetManifest, enrollmentId) : await resolveAssets(collectAssetIds(data.content)) };
 }
 
 /* ───────────── Imported packages (SCORM / HTML5) ───────────── */

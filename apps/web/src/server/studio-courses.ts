@@ -1,13 +1,17 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { Course, type CourseInput, composeCourse, flattenScreens, isQuestion } from "@mozes/content-schema";
 import { validateCourse } from "@mozes/validator";
 import { db } from "@/db";
 import { contentHash } from "@/lib/content-hash";
-import { auditLog, course, courseDraft, courseVersion, coursePackage, enrollment, user } from "@/db/schema";
+import { asset, auditLog, chapter, course, courseDraft, courseVersion, coursePackage, enrollment, user } from "@/db/schema";
 import { chaptersByIds, chaptersFromLegacy, rid } from "./chapters";
+import { prepareChapterPublication, recordChapterPublication } from "./chapter-versions";
+import { collectAssetIds } from "@/lib/collect-assets";
+import type { ValidationContext } from "@mozes/validator";
+import { ensurePrivateVersion } from "./media-v2";
 
 export interface CourseRow {
   id: string;
@@ -223,7 +227,7 @@ export async function updateCourse(courseId: string, actorId: string, u: CourseU
 
 export type PublishResult =
   | { ok: true; versionNo: number }
-  | { ok: false; reason: "not_found" | "invalid" | "medical_unconfirmed" | "unchanged"; errors?: string[] };
+  | { ok: false; reason: "not_found" | "invalid" | "medical_unconfirmed" | "unchanged"; errors?: string[]; problems?:{message:string;chapterId?:string;screenId?:string;path?:string}[] };
 
 export async function publishCourse(courseId: string, actorId: string, medicalConfirmed: boolean): Promise<PublishResult> {
   const [kindRow] = await db.select({ kind: course.kind, packageId: course.packageId }).from(course).where(eq(course.id, courseId));
@@ -235,27 +239,56 @@ export async function publishCourse(courseId: string, actorId: string, medicalCo
     if (!c) return { ok: false, reason: "not_found" } as const;
     const ids = c.chapterIds ?? [];
     if (!ids.length) return { ok: false, reason: "invalid", errors: ["אין פרקים בקורס. הוסיפו לפחות פרק אחד."] } as const;
-    const list = await chaptersByIds(ids);
+    // Read and lock every chapter in a consistent order within this publication transaction.
+    const chapterRows = await tx.select().from(chapter).where(inArray(chapter.id, ids)).orderBy(chapter.id).for("update");
+    const byId = new Map(chapterRows.map(row => [row.id, row]));
+    const list = ids.flatMap(id => { const row = byId.get(id); return row ? [{ id: row.id, title: row.title, kind: row.kind, doc: Course.parse(row.content), updatedAt: row.updatedAt }] : []; });
     if (list.length !== ids.length) return { ok: false, reason: "invalid", errors: ["אחד הפרקים בקורס נמחק מהמאגר."] } as const;
     const hasExam = list.some((ch) => ch.kind === "exam");
     if (c.certificateEnabled && hasExam && c.passingScore === null) {
       return { ok: false, reason: "invalid", errors: ["בקורס עם מבחן ותעודה יש לקבוע ציון עובר."] } as const;
     }
 
-    const result = validateCourse(composeWith(c, new Map(list.map((x) => [x.id, x]))));
+    const assetManifest: Record<string,string> = {}, reviewedScreenIds = new Set<string>();
+    const assets: NonNullable<ValidationContext["assets"]> = {}, devices: NonNullable<ValidationContext["devices"]> = {};
+    const isV2 = list.some(ch => ch.doc.schemaVersion === 2);
+    // Acquire all media locks globally before per-chapter processing to prevent lock inversion.
+    const mediaIds = [...new Set(list.flatMap(ch => collectAssetIds(ch.doc)))].sort();
+    if (mediaIds.length) await tx.select({ id: asset.id }).from(asset).where(inArray(asset.id, mediaIds)).orderBy(asset.id).for("update");
+    const prepared = [];
+    const problems:NonNullable<Extract<PublishResult,{ok:false}>["problems"]>=[];
+    if (isV2) for (const row of chapterRows) {
+      const result = await prepareChapterPublication(tx, row);
+      if (!result.ok){if(result.issues)problems.push(...result.issues.filter(i=>i.severity==="error").map(i=>({message:i.message,chapterId:row.id,screenId:i.screenId,path:i.path})));else problems.push(...result.errors.map(message=>({message,chapterId:row.id})));continue;}
+      for (const [assetId, versionId] of Object.entries(result.manifest)) {
+        if (assetManifest[assetId] && assetManifest[assetId] !== versionId) return { ok: false, reason: "invalid", errors: ["שני פרקים מקבעים גרסאות שונות של אותו נכס. יש לבחור גרסה אחידה בטיוטות לפני הפרסום."] } as const;
+        assetManifest[assetId] = versionId;
+      }
+      result.reviewedScreenIds.forEach(id => reviewedScreenIds.add(id)); Object.assign(assets, result.assets); Object.assign(devices, result.devices);
+      prepared.push({ row, ...result });
+    }
+    if(problems.length)return {ok:false,reason:"invalid",errors:problems.map(p=>p.message),problems} as const;
+    if (!isV2 && mediaIds.length) {
+      const [privateAsset] = await tx.select({ id: asset.id }).from(asset).where(and(inArray(asset.id, mediaIds), eq(asset.privateStorage, true))).limit(1);
+      if (privateAsset) return { ok: false, reason: "invalid", errors: ["מדיה חדשה דורשת גרסת v2. פתחו ושמרו את טיוטות הפרקים לפני פרסום הקורס."] } as const;
+    }
+    const result = validateCourse(composeWith(c, new Map(list.map((x) => [x.id, x]))), isV2 ? { purpose: "publish", assets, devices, reviewedScreenIds } : undefined);
     if (!result.ok || !result.course) {
       return { ok: false, reason: "invalid", errors: result.issues.filter((i) => i.severity === "error").map((i) => i.message) } as const;
     }
     const medical = flattenScreens(result.course).filter((r) => r.screen.medical.relevant);
-    if (medical.length && !medicalConfirmed) return { ok: false, reason: "medical_unconfirmed" } as const;
+    if (!isV2 && medical.length && !medicalConfirmed) return { ok: false, reason: "medical_unconfirmed" } as const;
 
     const hash = contentHash(result.course);
     const [latest] = await tx.select().from(courseVersion).where(eq(courseVersion.courseId, courseId)).orderBy(desc(courseVersion.versionNo)).limit(1);
-    if (latest?.contentHash === hash) return { ok: false, reason: "unchanged" } as const;
+    if (latest?.contentHash === hash && contentHash(latest.assetManifest) === contentHash(assetManifest)) return { ok: false, reason: "unchanged" } as const;
 
     const versionNo = (latest?.versionNo ?? 0) + 1;
     const versionId = randomUUID();
-    await tx.insert(courseVersion).values({ id: versionId, courseId, versionNo, content: result.course, contentHash: hash, publishedBy: actorId });
+    const versions=new Map(prepared.flatMap(ch=>[...ch.versions]));
+    for(const [id,version] of versions)assetManifest[id]=(await ensurePrivateVersion(tx,actorId,version)).id;
+    for (const ch of prepared) await recordChapterPublication(tx, ch.row, actorId, ch.doc, Object.fromEntries(Object.keys(ch.manifest).map(id=>[id,assetManifest[id]!])));
+    await tx.insert(courseVersion).values({ id: versionId, courseId, versionNo, content: result.course, contentHash: hash, assetManifest, publishedBy: actorId });
     await tx.update(course).set({ status: "published", publishedVersionId: versionId }).where(eq(course.id, courseId));
     await tx.insert(auditLog).values({
       actorId,

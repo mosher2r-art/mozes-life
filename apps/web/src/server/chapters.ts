@@ -9,11 +9,13 @@ import {
   readChapterFile,
   remapIds,
   toChapterFile,
+  upgradeDraftToV2,
 } from "@mozes/content-schema";
 import { validateCourse } from "@mozes/validator";
 import { db } from "@/db";
 import { asset, auditLog, chapter, course } from "@/db/schema";
 import { collectAssetIds } from "@/lib/collect-assets";
+import { assetReferenceErrors, documentContext } from "./content-v2";
 
 export const rid = (prefix: string) => `${prefix}-${randomBytes(5).toString("hex")}`;
 const fresh = (old: string) => {
@@ -60,7 +62,7 @@ function starter(title: string, kind: ChapterKind): ChapterFile {
   if (kind === "exam") {
     return {
       schema: "mozes-chapter",
-      schemaVersion: 1,
+      schemaVersion: 2,
       title,
       kind,
       screens: [
@@ -78,7 +80,7 @@ function starter(title: string, kind: ChapterKind): ChapterFile {
   }
   return {
     schema: "mozes-chapter",
-    schemaVersion: 1,
+    schemaVersion: 2,
     title,
     kind,
     screens: [
@@ -121,7 +123,7 @@ export type ChapterSave = { ok: true; revision: number } | { ok: false; reason: 
 export async function saveChapter(id: string, actorId: string, input: unknown, baseRevision: number): Promise<ChapterSave> {
   const parsed = Course.safeParse(input);
   if (!parsed.success) return { ok: false, reason: "invalid", message: parsed.error.issues[0]?.message };
-  const doc = parsed.data;
+  const doc = upgradeDraftToV2(parsed.data);
   if (doc.id !== id) return { ok: false, reason: "invalid", message: "מזהה הפרק אינו תואם" };
   if (doc.units.length !== 1) return { ok: false, reason: "invalid", message: "פרק מכיל יחידה אחת בדיוק" };
   const unit = doc.units[0]!;
@@ -129,9 +131,12 @@ export async function saveChapter(id: string, actorId: string, input: unknown, b
   unit.title = doc.title;
 
   return db.transaction(async (tx) => {
-    const [row] = await tx.select({ revision: chapter.revision }).from(chapter).where(eq(chapter.id, id)).for("update");
+    const [row] = await tx.select({ revision: chapter.revision, pins: chapter.draftAssetPins }).from(chapter).where(eq(chapter.id, id)).for("update");
     if (!row) return { ok: false, reason: "not_found" } as const;
     if (row.revision !== baseRevision) return { ok: false, reason: "conflict", revision: row.revision } as const;
+    const { context } = await documentContext(tx, doc, id, row.pins ?? {});
+    const errors = assetReferenceErrors(doc, context);
+    if (errors.length) return { ok: false, reason: "invalid", message: errors.map(i => `${i.message} (${i.path ?? "media"})`).join("\n") } as const;
     const revision = row.revision + 1;
     await tx.update(chapter).set({ content: doc, title: doc.title, kind: unit.kind, revision, updatedBy: actorId }).where(eq(chapter.id, id));
     return { ok: true, revision } as const;
@@ -174,6 +179,26 @@ export async function importChapters(actorId: string, files: { name: string; jso
       continue;
     }
     const created: NonNullable<ImportedChapter["chapters"]> = [];
+    if (r.chapters.some(ch => ch.schemaVersion === 2)) {
+      const result = await db.transaction(async tx => {
+        const prepared = [];
+        for (const ch of r.chapters) {
+          const file = remapIds(ch, fresh), id = rid("ch"), doc = Course.parse(chapterDocument(id, rid("u"), file));
+          if (doc.schemaVersion !== 2) return { ok: false as const, message: "גרסאות הפרקים בקובץ אינן תואמות." };
+          const { context } = await documentContext(tx, doc, undefined, {}, "import"), validation = validateCourse(doc, context);
+          const errors = validation.issues.filter(i => i.severity === "error");
+          if (errors.length) return { ok: false as const, message: errors.map(i => `${i.message}${i.path ? ` (${i.path})` : ""}`).join("\n") };
+          prepared.push({ file, id, doc });
+        }
+        for (const { file, id, doc } of prepared) {
+          await tx.insert(chapter).values({ id, title: file.title, kind: file.kind, content: doc, createdBy: actorId, updatedBy: actorId });
+          await tx.insert(auditLog).values({ actorId, action: "chapter.import", entity: "chapter", entityId: id, details: { file: f.name, schemaVersion: 2 } });
+        }
+        return { ok: true as const, chapters: prepared.map(p => ({ id: p.id, title: p.file.title, kind: p.file.kind, missingMedia: 0 })) };
+      });
+      out.push(result.ok ? { file: f.name, ok: true, chapters: result.chapters } : { file: f.name, ok: false, message: result.message });
+      continue;
+    }
     for (const ch of r.chapters) {
       const file = remapIds(ch, fresh);
       const assetIds = collectAssetIds(Course.parse(chapterDocument("x", "u", file)));
@@ -188,7 +213,7 @@ export async function importChapters(actorId: string, files: { name: string; jso
 
 export async function exportChapter(id: string) {
   const ch = await getChapter(id);
-  if (ch) {
+  if (ch && ch.content.schemaVersion === 1) {
     const screens = ch.content.units[0]?.screens ?? [];
     const scenes = screens.flatMap(screen => {
       const components = Object.values(screen.slots).flat();

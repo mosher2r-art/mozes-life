@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import path from "node:path";
+import { tmpdir } from "node:os";
 const { fetchMock } = vi.hoisted(() => ({ fetchMock: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("aws4fetch", () => ({ AwsClient: class { fetch = fetchMock; } }));
-import { driver, inspect, packageBaseUrl } from "./storage";
+import { driver, inspect, packageBaseUrl, localPath } from "./storage";
 
 beforeEach(() => {
   vi.stubEnv("MEDIA_DRIVER", "none");
@@ -17,6 +19,7 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
 
 describe("Worker object storage", () => {
+  it("respects an absolute local storage directory without adding the working directory",()=>{const directory=path.join(tmpdir(),"mozes-storage-test");vi.stubEnv("MEDIA_LOCAL_DIR",directory);expect(localPath("private/media/test.png")).toBe(path.join(directory,"private/media/test.png"));});
   it("rejects the local driver rather than persisting into ephemeral Worker storage", () => {
     vi.stubEnv("MEDIA_DRIVER", "local");
     expect(() => driver()).toThrow(/Local storage/);

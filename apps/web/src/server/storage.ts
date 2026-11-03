@@ -25,7 +25,7 @@ export function driver(): Driver {
 }
 
 // Development/test only; the comment stops the bundler from tracing the whole project.
-const localDir = () => path.join(/* turbopackIgnore: true */ process.cwd(), process.env.MEDIA_LOCAL_DIR ?? ".media");
+const localDir = () => path.resolve(/* turbopackIgnore: true */ process.cwd(), process.env.MEDIA_LOCAL_DIR ?? ".media");
 const safeKey = (key: string) => {
   if (!/^[a-z0-9][a-z0-9/_.-]{0,200}$/.test(key) || key.includes("..")) throw new Error("invalid storage key");
   return key;
