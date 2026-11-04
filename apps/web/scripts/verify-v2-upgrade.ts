@@ -25,7 +25,12 @@ try {
   await pool.query("INSERT INTO chapter(id,title,content) VALUES($1,$2,$3)", ["v2-upgrade-chapter", "Legacy", content]);
   await pool.query("INSERT INTO asset(id,kind,status,filename,mime,size_bytes,storage_key) VALUES('legacy-image','image','ready','legacy.png','image/png',8,'images/legacy.png')");
   const before = (await pool.query("SELECT content::text AS content FROM chapter WHERE id='v2-upgrade-chapter'")).rows[0].content;
+  const upgrade=await readFile(new URL("../../../supabase/upgrade-v2.sql",import.meta.url),"utf8");
+  await pool.query(upgrade);
+  await assert.rejects(pool.query(upgrade),/history differs or upgrade already applied/);
+  await pool.query("ROLLBACK");
   await migrate(drizzle(pool), { migrationsFolder: fileURLToPath(migrations) });
+  assert.equal(Number((await pool.query("SELECT count(*) AS n FROM drizzle.__drizzle_migrations")).rows[0].n),journal.entries.length);
   const after = (await pool.query("SELECT content::text AS content,revision,published_version_id FROM chapter WHERE id='v2-upgrade-chapter'")).rows[0];
   assert.equal(after.content, before); assert.equal(after.revision,1); assert.equal(after.published_version_id,null);
   const version = (await pool.query("SELECT * FROM asset_version WHERE asset_id='legacy-image'")).rows[0];
