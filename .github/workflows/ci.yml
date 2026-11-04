@@ -33,7 +33,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
-      - run: pnpm test
+      - name: Run unit and database integration tests
+        run: pnpm test
       - name: Build
         run: pnpm --filter @mozes/web build
         env:
@@ -55,7 +56,7 @@ jobs:
       - name: Generate and verify standalone SQL
         run: |
           pnpm --filter @mozes/web sql:generate
-          git diff --exit-code -- supabase/fresh-install.sql
+          git diff --exit-code -- supabase/fresh-install.sql supabase/upgrade-v2.sql
           psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE mozes_schema_test'
           pnpm --filter @mozes/web sql:verify
         env:
@@ -94,6 +95,9 @@ jobs:
               z.write('apps/web/wrangler.jsonc', 'wrangler.jsonc')
               z.write('supabase/fresh-install.sql', 'SUPABASE_DATABASE.sql')
               z.write('INSTALL_HE.md', 'INSTALL_HE.md')
+              z.write('AUTHORING_V2_HE.md', 'AUTHORING_V2_HE.md')
+              z.write('SCHEMA_V2_DEPLOY_HE.md', 'SCHEMA_V2_DEPLOY_HE.md')
+              z.write('supabase/upgrade-v2.sql', 'SUPABASE_UPGRADE_V2.sql')
           PYZIP
       - uses: actions/upload-artifact@v7
         with:
