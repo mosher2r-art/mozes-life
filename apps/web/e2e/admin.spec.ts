@@ -47,11 +47,11 @@ test("admin creates a learner, enrolls their organization, resets the password a
   // The administrator types the new password themselves
   await page.getByRole("button", { name: "איפוס סיסמה" }).click();
   await page.getByLabel("אקליד בעצמי").check();
-  await page.getByLabel("הסיסמה (לפחות 10 תווים)").fill("short");
+  await page.getByLabel("הסיסמה (לפחות 6 תווים)").fill("short");
   await page.getByRole("button", { name: "שמירת סיסמה" }).click();
-  await expect(page.getByText("הסיסמה צריכה להכיל לפחות 10 תווים.")).toBeVisible();
+  await expect(page.getByText("הסיסמה צריכה להכיל לפחות 6 תווים.")).toBeVisible();
   const pass2 = "Typed-by-admin-42";
-  await page.getByLabel("הסיסמה (לפחות 10 תווים)").fill(pass2);
+  await page.getByLabel("הסיסמה (לפחות 6 תווים)").fill(pass2);
   await page.getByRole("button", { name: "שמירת סיסמה" }).click();
   await expect(page.locator(".reveal-pass")).toHaveText(pass2);
   await p1.reload();
