@@ -16,6 +16,7 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { postgresConfig } from "../src/db/postgres-config";
+import { passwordProblem, PASSWORD_MIN } from "../src/lib/password-policy";
 import { isOrgRole, isPlatformRole } from "@mozes/authz";
 import * as schema from "../src/db/schema";
 
@@ -47,10 +48,11 @@ if (!roles.length && !values["org-role"]) fail("give at least one --role or --or
 let password = process.env.MOZES_NEW_PASSWORD;
 if (!password) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  password = await rl.question("Password (min 10 chars): ");
+  password = await rl.question(`Password (min ${PASSWORD_MIN} chars): `);
   rl.close();
 }
-if (password.length < 10 || password.length > 128) fail("password must be 10–128 characters");
+const passwordError=passwordProblem(password);
+if(passwordError)fail(passwordError);
 
 const url = process.env.DATABASE_URL ?? fail("DATABASE_URL is not set");
 const pool = new Pool(postgresConfig(url));
