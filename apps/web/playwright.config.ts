@@ -31,6 +31,8 @@ export default defineConfig({
       AUTH_SIGNIN_RATE_LIMIT_PER_MIN: "200", // many logins from one IP during the suite
       MEDIA_DRIVER: "local",
       MEDIA_LOCAL_DIR: process.env.TEST_MEDIA_LOCAL_DIR ?? "test-results/.media",
+      // Delivery capture is allowed only for loopback *_test databases, never in a Worker.
+      RECOVERY_TEST_OUTBOX_DIR: process.env.TEST_MAIL_OUTBOX_DIR ?? "test-results/.mail",
       // Imported packages are served from a different origin (127.0.0.1 vs localhost).
       PACKAGE_ORIGIN: `http://127.0.0.1:${PORT}`,
     },

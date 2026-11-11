@@ -44,7 +44,8 @@ const config: NextConfig = {
   transpilePackages: ["@mozes/authz", "@mozes/content-schema", "@mozes/player-core", "@mozes/player-react", "@mozes/validator"],
   async headers() {
     // /pkg/* (local package serving) sets its own framing policy; everything else is locked down.
-    return [{ source: "/:path((?!pkg/).*)", headers: securityHeaders }];
+    const recoveryHeaders=[{key:"Referrer-Policy",value:"no-referrer"},{key:"Cache-Control",value:"no-store"}];
+    return [{ source: "/:path((?!pkg/).*)", headers: securityHeaders },{source:"/reset-password",headers:recoveryHeaders},{source:"/api/auth/reset-password/:path*",headers:recoveryHeaders}];
   },
 };
 
